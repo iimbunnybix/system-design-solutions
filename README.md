@@ -16,6 +16,7 @@ Every problem folder has the same structure:
 | # | Problem |
 |---|---|
 | 001 | [Adding one cache server during a sale emptied the whole cache and took down the DB](problems/001-consistent-hashing-cache-scaling) |
+| 002 | [URL shortener: random short codes started colliding, and the DB sequence became a bottleneck](problems/002-url-shortener-id-generation) |
 <!-- INDEX:END -->
 
 ## Run the tests
