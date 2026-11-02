@@ -15,6 +15,7 @@ Every problem folder has the same structure:
 <!-- INDEX:START -->
 | # | Problem |
 |---|---|
+| 001 | [Adding one cache server during a sale emptied the whole cache and took down the DB](problems/001-consistent-hashing-cache-scaling) |
 <!-- INDEX:END -->
 
 ## Run the tests
