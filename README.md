@@ -19,6 +19,7 @@ Every problem folder has the same structure:
 | 002 | [URL shortener: random short codes started colliding, and the DB sequence became a bottleneck](problems/002-url-shortener-id-generation) |
 | 003 | [Database CPU spikes to 100% every few minutes, exactly when the homepage cache entry expires](problems/003-cache-stampede-single-flight) |
 | 004 | [Two schedulers both thought they were leader and charged the same subscriptions twice](problems/004-lease-fencing-tokens) |
+| 005 | [Users saved their profile, the page reloaded with the old value, and some edits seemed to vanish](problems/005-read-your-writes-replica-lag) |
 <!-- INDEX:END -->
 
 ## Run the tests
