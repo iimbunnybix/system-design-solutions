@@ -23,6 +23,7 @@ Every problem folder has the same structure:
 | 006 | [Items customers added to their cart on one device disappeared when they checked out on another](problems/006-multi-region-cart-crdt) |
 | 007 | [One viral post made "like" requests time out, and the whole site slowed down with it](problems/007-hot-row-sharded-counter) |
 | 008 | [The "is this username available?" check became the biggest source of database load](problems/008-bloom-filter-username-check) |
+| 009 | [Basic-plan API keys got 2,000 requests a minute instead of 100, and the first fix throttled paying customers](problems/009-distributed-rate-limit-shared-store) |
 <!-- INDEX:END -->
 
 ## Run the tests
