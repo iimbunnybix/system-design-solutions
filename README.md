@@ -26,6 +26,7 @@ Every problem folder has the same structure:
 | 009 | [Basic-plan API keys got 2,000 requests a minute instead of 100, and the first fix throttled paying customers](problems/009-distributed-rate-limit-shared-store) |
 | 010 | [Product search got slower with every catalog import, and "shoes running" returned nothing](problems/010-inverted-index-product-search) |
 | 011 | [Whenever a celebrity posted, everyone's home feed froze for minutes and new posts from friends showed up late](problems/011-celebrity-timeline-fanout) |
+| 012 | ["Finding drivers near you" took longer every month as the fleet grew, and the matching service fell over on Friday nights](problems/012-geohash-nearby-drivers) |
 <!-- INDEX:END -->
 
 ## Run the tests
