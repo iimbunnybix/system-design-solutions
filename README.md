@@ -17,6 +17,7 @@ Every problem folder has the same structure:
 |---|---|
 | 001 | [Adding one cache server during a sale emptied the whole cache and took down the DB](problems/001-consistent-hashing-cache-scaling) |
 | 002 | [URL shortener: random short codes started colliding, and the DB sequence became a bottleneck](problems/002-url-shortener-id-generation) |
+| 003 | [Database CPU spikes to 100% every few minutes, exactly when the homepage cache entry expires](problems/003-cache-stampede-single-flight) |
 <!-- INDEX:END -->
 
 ## Run the tests
