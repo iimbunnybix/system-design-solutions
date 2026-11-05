@@ -35,6 +35,7 @@ Every problem folder has the same structure:
 | 018 | [Reminder notifications started arriving minutes late, and got later every week as the queue grew](problems/018-delayed-jobs-timing-wheel) |
 | 019 | [A storage node lost power and then crash-looped on restart, and after a manual fix one account showed a wrong balance](problems/019-torn-write-log-recovery) |
 | 020 | [The database cluster failed over dozens of times a day, and each time the "dead" primary turned out to be healthy](problems/020-phi-accrual-failure-detector) |
+| 021 | [Two customers signed up with the same username after the user table was sharded](problems/021-cross-shard-unique-username) |
 <!-- INDEX:END -->
 
 ## Run the tests
