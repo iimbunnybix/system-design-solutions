@@ -47,17 +47,20 @@ class LeaseManager:
         self._lock = threading.Lock()
 
     def acquire(self, holder: str) -> Lease | None:
-        """Grant the lease if free or expired. Re-acquire by the holder = renew."""
+        """Grant the lease only if it is free or expired, always with a new token.
+
+        A live lease is refused even when ``holder`` matches: holder names
+        (pod names, hostnames) are reused by replacement processes, so a name
+        does not prove ownership. The current owner extends its lease with
+        ``renew(lease)``, which checks the token instead.
+        """
         with self._lock:
             now = self.clock()
             cur = self._lease
-            if cur and cur.expires_at > now and cur.holder != holder:
+            if cur and cur.expires_at > now:
                 return None
-            if cur and cur.holder == holder and cur.expires_at > now:
-                self._lease = Lease(holder, cur.token, now + self.ttl)   # renew, same token
-            else:
-                self._lease = Lease(holder, self._next_token, now + self.ttl)
-                self._next_token += 1
+            self._lease = Lease(holder, self._next_token, now + self.ttl)
+            self._next_token += 1
             return self._lease
 
     def renew(self, lease: Lease) -> Lease:

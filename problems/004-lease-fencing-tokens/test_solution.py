@@ -137,3 +137,31 @@ class FencingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SameHolderNameTests(unittest.TestCase):
+    """Issue #5: holder names (pod names, hostnames) get reused by replacements."""
+
+    def test_second_process_with_same_name_cannot_take_a_live_lease(self):
+        clock = FakeClock()
+        leases = LeaseManager(ttl_s=10, clock=clock)
+        old = Worker("scheduler-0", leases, FencedStorage())
+        self.assertTrue(old.try_lead())
+        clock.t += 5                              # old process pauses, lease still live
+        replacement = Worker("scheduler-0", leases, old.storage)
+        self.assertFalse(replacement.try_lead())
+
+    def test_replacement_with_same_name_gets_new_token_after_expiry(self):
+        clock = FakeClock()
+        leases = LeaseManager(ttl_s=10, clock=clock)
+        store = FencedStorage()
+        old = Worker("scheduler-0", leases, store)
+        old.try_lead()
+        clock.t += 15                             # old lease expired during the pause
+        replacement = Worker("scheduler-0", leases, store)
+        self.assertTrue(replacement.try_lead())
+        self.assertGreater(replacement.lease.token, old.lease.token)
+        replacement.write("balance", 200)
+        with self.assertRaises(StaleToken):
+            old.write("balance", 100, check_first=False)
+        self.assertEqual(store.log, [("balance", 200)])
