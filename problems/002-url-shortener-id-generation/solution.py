@@ -44,19 +44,28 @@ def base62_decode(s: str) -> int:
 
 class SnowflakeGenerator:
     def __init__(self, worker_id: int, clock_ms: Callable[[], int] = lambda: time.time_ns() // 1_000_000,
-                 max_backwards_wait_ms: int = 5):
+                 max_backwards_wait_ms: int = 5,
+                 monotonic_ms: Callable[[], int] = lambda: time.monotonic_ns() // 1_000_000):
         if not 0 <= worker_id <= MAX_WORKER:
             raise ValueError(f"worker_id must be 0..{MAX_WORKER}")
         self.worker_id = worker_id
         self._clock = clock_ms
         self._max_wait = max_backwards_wait_ms
+        # The wall clock is the thing that went wrong, so time the wait with a monotonic clock.
+        self._monotonic = monotonic_ms
         self._last_ms = -1
         self._seq = 0
         self._lock = threading.Lock()
 
-    def _wait_until_after(self, ms: int) -> int:
+    def _wait_until_after(self, ms: int, deadline_ms: int | None = None) -> int:
+        """Spin until the wall clock passes `ms`, or until the monotonic deadline expires.
+
+        Returns the last reading; the caller checks whether it actually got past `ms`.
+        """
         now = self._clock()
         while now <= ms:
+            if deadline_ms is not None and self._monotonic() >= deadline_ms:
+                break
             now = self._clock()
         return now
 
@@ -70,7 +79,9 @@ class SnowflakeGenerator:
             if now < self._last_ms:
                 if self._last_ms - now > self._max_wait:
                     raise ClockMovedBackwards(f"clock moved back {self._last_ms - now} ms")
-                now = self._wait_until_after(self._last_ms - 1)
+                # Bound the wait: a frozen clock must not block every caller forever under the lock.
+                deadline_ms = self._monotonic() + self._max_wait
+                now = self._wait_until_after(self._last_ms - 1, deadline_ms)
                 if now < self._last_ms:
                     raise ClockMovedBackwards("clock did not recover")
             if now == self._last_ms:

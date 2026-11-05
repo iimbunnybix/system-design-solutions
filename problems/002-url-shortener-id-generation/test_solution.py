@@ -15,6 +15,26 @@ class FakeClock:
         return self.t
 
 
+class FakeMonotonic:
+    """Monotonic clock that moves forward 1 ms every time it is read."""
+
+    def __init__(self):
+        self.t = 0
+
+    def __call__(self):
+        self.t += 1
+        return self.t
+
+
+class RecoveringClock(FakeClock):
+    """Wall clock that creeps forward 1 ms per read, as a real clock does while we wait."""
+
+    def __call__(self):
+        value = super().__call__()
+        self.t += 1
+        return value
+
+
 class SnowflakeTests(unittest.TestCase):
     def test_base62_round_trip(self):
         for n in (0, 1, 61, 62, 3843, 2 ** 63 - 1):
@@ -85,6 +105,21 @@ class SnowflakeTests(unittest.TestCase):
     def test_clock_exactly_at_epoch_gives_id_zero_timestamp(self):
         gen = SnowflakeGenerator(0, FakeClock(EPOCH_MS))
         self.assertEqual(gen.next_id(), 0)
+
+    def test_small_rollback_is_waited_out(self):
+        clock = RecoveringClock()
+        gen = SnowflakeGenerator(1, clock, monotonic_ms=FakeMonotonic())
+        first = gen.next_id()
+        clock.t -= 3
+        self.assertGreater(gen.next_id(), first)
+
+    def test_clock_that_never_recovers_raises(self):
+        clock = FakeClock()
+        gen = SnowflakeGenerator(1, clock, monotonic_ms=FakeMonotonic())
+        gen.next_id()
+        clock.t -= 3                     # inside the 5 ms allowance, but the clock is frozen
+        with self.assertRaises(ClockMovedBackwards):
+            gen.next_id()
 
     def test_birthday_problem_explains_the_incident(self):
         self.assertGreater(random_code_collision_probability(300_000), 0.5)
