@@ -28,6 +28,7 @@ Every problem folder has the same structure:
 | 011 | [Whenever a celebrity posted, everyone's home feed froze for minutes and new posts from friends showed up late](problems/011-celebrity-timeline-fanout) |
 | 012 | ["Finding drivers near you" took longer every month as the fleet grew, and the matching service fell over on Friday nights](problems/012-geohash-nearby-drivers) |
 | 013 | [Products showed "out of stock" while the warehouse shelves were full, and some customers were charged for orders that never shipped](problems/013-saga-compensation-stuck-inventory) |
+| 014 | [Users' saved settings flipped back to old values at random, and got much worse after a storage node came back from maintenance](problems/014-quorum-reads-stale-replica) |
 <!-- INDEX:END -->
 
 ## Run the tests
