@@ -1,5 +1,6 @@
 import random
 import string
+import unicodedata
 import unittest
 
 from solution import BloomFilter, UsernameService, normalize
@@ -86,6 +87,20 @@ class WithBloom(unittest.TestCase):
     def test_normalize(self):
         self.assertEqual(normalize("  Ravi_K "), "ravi_k")
         self.assertIn("é", normalize("José"))
+
+    def test_composed_and_decomposed_spellings_are_the_same_username(self):
+        composed = unicodedata.normalize("NFC", "José")
+        decomposed = unicodedata.normalize("NFD", "José")
+        self.assertNotEqual(composed, decomposed)          # different code points
+        svc = UsernameService(set(), BloomFilter(100, 0.01))
+        self.assertTrue(svc.register(composed))
+        self.assertFalse(svc.register(decomposed))
+        self.assertFalse(svc.is_available(decomposed))
+
+    def test_case_folding_treats_sharp_s_as_ss(self):
+        svc = UsernameService(set(), BloomFilter(100, 0.01))
+        self.assertTrue(svc.register("straße"))
+        self.assertFalse(svc.register("STRASSE"))
 
 
 if __name__ == "__main__":

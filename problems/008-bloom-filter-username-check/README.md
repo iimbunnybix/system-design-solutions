@@ -42,7 +42,11 @@ Measured in the tests:
   `needs_rebuild()` flags it once it passes capacity.
 
 New sign-ups are added to the filter right after the DB commit. Names are
-normalized (trim, lowercase) identically for inserts and lookups.
+normalized identically for inserts and lookups: trim, Unicode NFKC (so
+"José" typed as composed or decomposed characters is one name), then
+`casefold()` (so "straße" and "STRASSE" collide). The same function must
+build the key stored under the DB's unique index, otherwise the database and
+the filter disagree about which names are taken.
 
 ## Trade-offs
 - **No deletes**: a released username stays "maybe taken" (costing a DB query,

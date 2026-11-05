@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import unicodedata
 
 
 class BloomFilter:
@@ -70,8 +71,14 @@ class BloomFilter:
 
 
 def normalize(username: str) -> str:
-    """Usernames are case-insensitive; normalize before *every* lookup and insert."""
-    return username.strip().lower()
+    """Usernames are case-insensitive; normalize before *every* lookup and insert.
+
+    NFKC first, because the same visible name can arrive as different code
+    points (macOS/iOS keyboards often send decomposed "e" + accent, others send
+    the composed "é"). Then casefold(), which unlike lower() also folds "ß" to
+    "ss". Without both, look-alike names register as different accounts.
+    """
+    return unicodedata.normalize("NFKC", username.strip()).casefold()
 
 
 class UsernameService:
