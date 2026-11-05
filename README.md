@@ -47,6 +47,7 @@ Every problem folder has the same structure:
 | 030 | [Fraud scoring was OOM-killed 16 seconds into a sale, and 16,400 orders were never checked](problems/030-credit-based-flow-control) |
 | 031 | [The "newest listings" feed ended after 13 pages, and sellers said most of their listings never showed up](problems/031-scatter-gather-pagination-merge) |
 | 032 | [Merchants changed a price, and shoppers kept seeing the old one for exactly 10 minutes even though the cache had been cleared](problems/032-cache-fill-from-lagging-replica) |
+| 033 | [Messages users had deleted reappeared in their chats after a database node came back from a three-day repair](problems/033-tombstone-gc-zombie-resurrection) |
 <!-- INDEX:END -->
 
 ## Run the tests
