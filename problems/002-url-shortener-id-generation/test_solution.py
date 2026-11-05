@@ -1,7 +1,7 @@
 import threading
 import unittest
 
-from solution import (ClockMovedBackwards, SnowflakeGenerator, base62_decode, base62_encode,
+from solution import (EPOCH_MS, ClockBeforeEpoch, ClockMovedBackwards, SnowflakeGenerator, base62_decode, base62_encode,
                       decompose, random_code_collision_probability)
 
 
@@ -70,6 +70,21 @@ class SnowflakeTests(unittest.TestCase):
         clock.t -= 1000
         with self.assertRaises(ClockMovedBackwards):
             gen.next_id()
+
+    def test_clock_before_epoch_is_refused(self):
+        gen = SnowflakeGenerator(1, FakeClock(EPOCH_MS - 1))
+        with self.assertRaises(ClockBeforeEpoch):
+            gen.next_id()
+
+    def test_clock_at_unix_epoch_mints_no_code(self):
+        # A VM that boots with its clock at 1970 before NTP sync.
+        gen = SnowflakeGenerator(1, FakeClock(0))
+        with self.assertRaises(ClockBeforeEpoch):
+            gen.next_code()
+
+    def test_clock_exactly_at_epoch_gives_id_zero_timestamp(self):
+        gen = SnowflakeGenerator(0, FakeClock(EPOCH_MS))
+        self.assertEqual(gen.next_id(), 0)
 
     def test_birthday_problem_explains_the_incident(self):
         self.assertGreater(random_code_collision_probability(300_000), 0.5)

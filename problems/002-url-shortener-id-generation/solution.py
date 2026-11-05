@@ -16,6 +16,10 @@ class ClockMovedBackwards(Exception):
     pass
 
 
+class ClockBeforeEpoch(Exception):
+    """The host clock reads earlier than EPOCH_MS (e.g. booted at 1970 before NTP sync)."""
+
+
 def base62_encode(n: int) -> str:
     if n < 0:
         raise ValueError("negative")
@@ -59,6 +63,10 @@ class SnowflakeGenerator:
     def next_id(self) -> int:
         with self._lock:
             now = self._clock()
+            # A clock before our epoch would produce negative IDs that sort before
+            # every real one, so fail loudly instead of minting them.
+            if now < EPOCH_MS:
+                raise ClockBeforeEpoch(f"clock {now} ms is before epoch {EPOCH_MS} ms")
             if now < self._last_ms:
                 if self._last_ms - now > self._max_wait:
                     raise ClockMovedBackwards(f"clock moved back {self._last_ms - now} ms")
