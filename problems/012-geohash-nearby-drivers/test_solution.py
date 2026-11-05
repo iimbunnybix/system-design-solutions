@@ -110,6 +110,18 @@ class GeohashFix(unittest.TestCase):
             idx.upsert(f"d{i}", 19.1 + off, 72.9)
         self.assertEqual([d for _, d in idx.nearby(19.1, 72.9, 1_000, limit=2)], ["d1", "d2"])
 
+    def test_limit_zero_returns_no_drivers(self):
+        idx = GeohashIndex(6)
+        idx.upsert("d0", 19.1, 72.9)
+        self.assertEqual(idx.nearby(19.1, 72.9, 1_000, limit=0), [])
+        self.assertEqual(len(idx.nearby(19.1, 72.9, 1_000, limit=None)), 1)
+
+    def test_negative_limit_is_rejected(self):
+        idx = GeohashIndex(6)
+        idx.upsert("d0", 19.1, 72.9)
+        with self.assertRaises(ValueError):
+            idx.nearby(19.1, 72.9, 1_000, limit=-1)
+
     def test_edge_inputs(self):
         with self.assertRaises(ValueError):
             encode(91, 0, 6)

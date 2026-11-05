@@ -150,6 +150,8 @@ class GeohashIndex:
         Only the cells covering the circle's bounding box are read; candidates
         are then filtered by exact distance, so results equal a full scan.
         """
+        if limit is not None and limit < 0:
+            raise ValueError("limit must be non-negative")
         stats = QueryStats()
         out = []
         for cell in covering_cells(lat, lon, radius_m, self.precision):
@@ -162,4 +164,8 @@ class GeohashIndex:
                     out.append((dist, d))
         self.last = stats
         out.sort()
-        return out[:limit] if limit else out
+        # Compare with None explicitly: limit=0 ("I need no more drivers")
+        # must return nothing, not everyone in the radius.
+        if limit is None:
+            return out
+        return out[:limit]
