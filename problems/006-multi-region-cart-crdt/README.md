@@ -22,7 +22,8 @@ carries an *earlier* timestamp and loses. Both cases are reproduced in
 ## Solution
 Model the cart as a **CRDT**: an Observed-Remove Set (`ORSetCart`).
 
-- **Every add gets a unique tag** `(replica_id, counter)`, with a quantity.
+- **Every add gets a unique tag** `(replica_id, incarnation, counter)`, with
+  a quantity. The incarnation is a random id chosen at every process start.
 - **Remove only tombstones the tags this replica has observed**, so it can't
   delete an add it never saw.
 - **Merge is set union** of adds and tombstones. That makes it commutative,
@@ -33,10 +34,14 @@ Model the cart as a **CRDT**: an Observed-Remove Set (`ORSetCart`).
 - **Add wins** over a concurrent remove. For a cart, an unwanted item is easy
   to remove at checkout; a silently lost item is lost revenue.
 - No wall clocks are involved, so clock skew cannot pick a winner.
-- After a restart, the replica's counter is restored from merged state, so it
-  never reissues a tag (tested).
+- Tags do not depend on persisted counters. A replica restored from a stale
+  backup would otherwise reissue a counter it had already replicated, and one
+  tombstone would then remove two different items. With a fresh incarnation
+  per start, that cannot happen (tested with a stale-backup restore).
 
 ## Trade-offs
+- **Bigger tags.** The incarnation id adds bytes to every tag; a 64-bit
+  random id or a durable boot counter would do if size matters.
 - **Metadata grows.** Every add and remove leaves tags and tombstones.
   `compact()` drops removed adds, but tombstones can only be garbage-collected
   once every replica has seen them (track that with version vectors), or by

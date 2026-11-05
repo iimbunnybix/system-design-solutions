@@ -9,7 +9,9 @@ Clock skew between regions made it worse: an *older* edit could win.
 
 ``ORSetCart`` is an Observed-Remove Set CRDT:
 
-* every add creates a unique tag ``(replica_id, counter)``;
+* every add creates a unique tag ``(replica_id, incarnation, counter)``;
+  the incarnation is a fresh random id per process start, so a replica
+  restored from a stale backup can never reissue a tag it already shipped;
 * a remove deletes only the tags the remover has **observed**;
 * ``merge`` is a union of adds and removes, so it is commutative,
   associative and idempotent - replicas can sync in any order, any number of
@@ -24,9 +26,10 @@ devices are both kept (the cart shows the sum of live tags for the SKU).
 from __future__ import annotations
 
 import copy
+import uuid
 from dataclasses import dataclass, field
 
-Tag = tuple[str, int]          # (replica id, per-replica counter)
+Tag = tuple[str, str, int]     # (replica id, incarnation id, counter)
 
 
 @dataclass
@@ -47,8 +50,12 @@ class LwwCart:
 class ORSetCart:
     """Observed-remove set of cart lines; mergeable across regions."""
 
-    def __init__(self, replica_id: str) -> None:
+    def __init__(self, replica_id: str, incarnation: str | None = None) -> None:
         self.replica_id = replica_id
+        # WHY: a counter alone is only as fresh as the state it was reloaded
+        # from. A new random incarnation per process start keeps tags unique
+        # even after restoring an old backup. Tests pass a fixed value.
+        self.incarnation = incarnation if incarnation is not None else uuid.uuid4().hex
         self._counter = 0
         self.adds: dict[str, dict[Tag, int]] = {}   # sku -> {tag: qty}
         self.removed: set[Tag] = set()               # tombstones
@@ -56,7 +63,7 @@ class ORSetCart:
     # -- local operations ------------------------------------------------
     def _next_tag(self) -> Tag:
         self._counter += 1
-        return (self.replica_id, self._counter)
+        return (self.replica_id, self.incarnation, self._counter)
 
     def add(self, sku: str, qty: int = 1) -> Tag:
         """Add ``qty`` of ``sku`` under a fresh tag."""
@@ -94,10 +101,6 @@ class ORSetCart:
         for sku, tags in other.adds.items():
             self.adds.setdefault(sku, {}).update(tags)
         self.removed |= other.removed
-        # Never reuse a tag this replica may already have issued.
-        own = [c for (rid, c) in self.removed | {t for ts in self.adds.values() for t in ts}
-               if rid == self.replica_id]
-        self._counter = max([self._counter, *own])
 
     def snapshot(self) -> "ORSetCart":
         """Copy of the state as it would be shipped over the network."""

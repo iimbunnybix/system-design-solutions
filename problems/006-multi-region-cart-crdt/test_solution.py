@@ -86,13 +86,28 @@ class ORSetSemantics(unittest.TestCase):
         self.assertEqual(a.items(), once)
 
     def test_counter_never_reuses_tags_after_restore(self):
-        a = ORSetCart("eu")
-        a.add("x")
+        a = ORSetCart("eu", incarnation="boot-1")
+        first_tag = a.add("x")
         backup = a.snapshot()
-        fresh = ORSetCart("eu")                 # process restarted, state reloaded
+        fresh = ORSetCart("eu", incarnation="boot-2")   # process restarted
         fresh.merge(backup)
-        tag = fresh.add("y")
-        self.assertEqual(tag, ("eu", 2))
+        self.assertNotEqual(fresh.add("y"), first_tag)
+
+    def test_restore_from_stale_backup_does_not_link_two_items(self):
+        eu = ORSetCart("eu", incarnation="boot-1")
+        us = ORSetCart("us", incarnation="boot-1")
+        eu.add("socks")
+        backup = eu.snapshot()                  # periodic backup
+        eu.add("shoes")
+        us.merge(eu.snapshot())                 # shoes' tag already shipped
+        fresh = ORSetCart("eu", incarnation="boot-2")
+        fresh.merge(backup)                     # restart from the stale backup
+        fresh.add("hat")
+        us.merge(fresh.snapshot())
+        us.remove("shoes")
+        fresh.merge(us.snapshot())
+        self.assertEqual(us.items(), {"hat": 1, "socks": 1})
+        self.assertEqual(fresh.items(), {"hat": 1, "socks": 1})
 
     def test_invalid_qty(self):
         with self.assertRaises(ValueError):
