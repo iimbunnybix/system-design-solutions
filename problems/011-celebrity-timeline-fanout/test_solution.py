@@ -127,6 +127,25 @@ class HybridFix(unittest.TestCase):
         self.assertEqual(len(feed.inbox["a"]), 5)
         self.assertEqual([p.ts for p in feed.timeline("a", limit=3)], [9.0, 8.0, 7.0])
 
+    def test_late_fan_out_keeps_timeline_newest_first(self):
+        feed = HybridFeed(celebrity_threshold=2)
+        for author in ("friendA", "friendB", "star"):
+            feed.follow("u1", author)
+        feed.follow("u2", "star")
+        feed.post("friendA", ts=5.0)
+        feed.post("friendB", ts=3.0)   # fanned out later, older timestamp
+        feed.post("star", ts=4.0)
+        self.assertEqual([p.ts for p in feed.timeline("u1", limit=2)], [5.0, 4.0])
+        self.assertEqual([p.ts for p in feed.timeline("u1", limit=3)], [5.0, 4.0, 3.0])
+
+    def test_bounded_inbox_drops_the_oldest_post_when_arrivals_are_out_of_order(self):
+        feed = PushFeed(inbox_limit=2)
+        feed.follow("u1", "a")
+        feed.post("a", ts=5.0)
+        feed.post("a", ts=7.0)
+        feed.post("a", ts=6.0)
+        self.assertEqual([p.ts for p in feed.timeline("u1")], [7.0, 6.0])
+
     def test_empty_timeline(self):
         self.assertEqual(HybridFeed().timeline("nobody"), [])
 

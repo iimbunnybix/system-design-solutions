@@ -48,7 +48,18 @@ class _Base:
         self.following[user].add(author)
 
     def _push(self, box: Deque[Post], post: Post) -> None:
-        box.appendleft(post)
+        """Insert ``post`` keeping ``box`` sorted newest-first by (ts, post_id).
+
+        Fan-out is asynchronous, so posts can arrive out of timestamp order
+        (queue delay, retries, clock skew). The timeline's k-way merge needs
+        every source sorted, so we insert in order instead of always at the
+        front. A fresh post is usually the newest, so the scan stops at once.
+        """
+        new_key = (post.ts, post.post_id)
+        position = 0
+        while position < len(box) and (box[position].ts, box[position].post_id) > new_key:
+            position += 1
+        box.insert(position, post)
         if len(box) > self.inbox_limit:
             box.pop()
         self.writes += 1
