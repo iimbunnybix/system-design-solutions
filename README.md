@@ -50,6 +50,7 @@ Every problem folder has the same structure:
 | 033 | [Messages users had deleted reappeared in their chats after a database node came back from a three-day repair](problems/033-tombstone-gc-zombie-resurrection) |
 | 034 | [One tenant's month-end dashboard refresh timed out every query on one worker while nine others sat half idle](problems/034-bounded-load-consistent-hashing) |
 | 035 | [One customer uploaded 2,000 reports and every other customer's export sat "queued" for over a minute and a half](problems/035-noisy-tenant-fifo-queue-fair-scheduling) |
+| 036 | [Order events piled up for seconds at the lunch peak, though the log server's CPU and disk bandwidth were nearly idle](problems/036-per-write-fsync-group-commit) |
 <!-- INDEX:END -->
 
 ## Run the tests
