@@ -64,6 +64,10 @@ including word-order swaps, accents, prefixes and a query with no matches.
 - No typo tolerance, synonyms ("sneakers" = "running shoes") or stemming
   ("jackets" vs "jacket") here; those are analyzer features in Elasticsearch/
   OpenSearch and the main reason to adopt one instead of building your own.
+- Tokens are letters and digits in any script, case-folded ("Straße" =
+  "strasse"). Chinese and Japanese text has no spaces between words, so a
+  whole run of CJK characters becomes one token; good CJK search needs an
+  n-gram or dictionary analyzer (e.g. Elasticsearch's ICU or kuromoji).
 - For smaller catalogs, the database's built-in full-text search (PostgreSQL
   `tsvector` + GIN index, or a `pg_trgm` trigram index for `LIKE '%…%'`)
   avoids running a separate system.

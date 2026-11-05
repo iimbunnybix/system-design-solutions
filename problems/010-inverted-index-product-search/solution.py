@@ -19,14 +19,21 @@ import unicodedata
 from collections import Counter
 from dataclasses import dataclass
 
-TOKEN_RE = re.compile(r"[a-z0-9]+")
+# Letters and digits in ANY script. "[^\W_]" means "a word character that is
+# not an underscore". An ASCII-only class like [a-z0-9] silently dropped
+# Cyrillic, Greek and CJK names and split "Straße" into "stra" + "e".
+TOKEN_RE = re.compile(r"[^\W_]+")
 
 
 def normalize(text: str) -> list[str]:
-    """Lowercase, strip accents (é -> e), split on non-alphanumerics."""
-    decomposed = unicodedata.normalize("NFKD", text)
+    """Case-fold, strip accents (é -> e), split on anything that is not a letter or digit.
+
+    ``casefold()`` is used instead of ``lower()`` because it also folds
+    letters such as "ß" to "ss", so "Straße" and "strasse" match.
+    """
+    decomposed = unicodedata.normalize("NFKD", text.casefold())
     stripped = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
-    return TOKEN_RE.findall(stripped.lower())
+    return TOKEN_RE.findall(stripped)
 
 
 # ------------------------------------------------------------- the old way

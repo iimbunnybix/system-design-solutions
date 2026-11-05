@@ -154,5 +154,26 @@ class IndexCorrectness(Fixture):
         self.assertEqual(normalize("Café BLEU – Pro-Max 2"), ["cafe", "bleu", "pro", "max", "2"])
 
 
+class NonAsciiNames(unittest.TestCase):
+    """Issue #13: letters outside ASCII must be kept, not treated as separators."""
+
+    def test_cyrillic_name_is_found_by_its_own_word(self):
+        idx = InvertedIndex()
+        idx.add(1, "Кофе Арабика 1 кг")
+        self.assertEqual(idx.search("кофе"), [1])
+
+    def test_sharp_s_matches_its_ascii_spelling(self):
+        idx = InvertedIndex()
+        idx.add(2, "Straße Map")
+        self.assertEqual(idx.search("strasse"), [2])
+        self.assertEqual(idx.search("STRASSE map"), [2])
+
+    def test_letters_without_ascii_decomposition_are_kept(self):
+        self.assertEqual(normalize("Straße Œuvre ØL"), ["strasse", "œuvre", "øl"])
+
+    def test_underscore_still_separates_words(self):
+        self.assertEqual(normalize("snake_case"), ["snake", "case"])
+
+
 if __name__ == "__main__":
     unittest.main()
