@@ -6,16 +6,18 @@ limit silently grew every time the fleet autoscaled. Dividing the limit by the
 node count was tried next; it blocks well-behaved clients whenever load
 balancing is uneven (sticky sessions, consistent hashing, few connections).
 
-The fix keeps the counters in a shared store (Redis in production) and makes
-the check-and-increment one atomic operation (a Lua script in Redis), using a
-**sliding window counter**: the current fixed window's count plus the previous
-window's count weighted by how much of it still overlaps the last 60 seconds.
+The fix keeps the rate-limit state in a shared store (Redis in production) and makes
+the check-and-record one atomic operation (a Lua script in Redis), using a
+**sliding log**: the timestamps of the admitted requests in the last 60 seconds
+(a sorted set in Redis). A request is admitted only if fewer than ``limit``
+timestamps are in the window, so no rolling 60 s window ever holds more than
+the quota, even for a client that bursts across a minute boundary.
 If the store is unreachable, nodes fall back to a conservative local limit.
 """
 from __future__ import annotations
 
-import math
 import threading
+from collections import deque
 from dataclasses import dataclass
 from typing import Optional
 
@@ -36,40 +38,39 @@ class StoreUnavailable(Exception):
 
 
 class SharedStore:
-    """Stand-in for Redis: integer counters with expiry and an atomic script hook."""
+    """Stand-in for Redis: one log of admitted timestamps per key, behind an atomic script hook."""
 
     def __init__(self, clock: FakeClock) -> None:
         self.clock = clock
-        self._data: dict[str, tuple[int, float]] = {}
+        self._logs: dict[str, deque[float]] = {}
         self._lock = threading.Lock()
         self.available = True
         self.calls = 0
 
-    def _get(self, key: str) -> int:
-        value, expires = self._data.get(key, (0, math.inf))
-        return value if self.clock.now() < expires else 0
+    def sliding_log_acquire(self, key: str, limit: int, window: float) -> tuple[bool, int]:
+        """Atomically check and record one request. Returns (allowed, count in window).
 
-    def sliding_window_acquire(self, key: str, limit: int, window: float) -> tuple[bool, float]:
-        """Atomically check and record one request. Returns (allowed, estimated count).
-
-        Equivalent to a single Redis Lua script: GET prev, GET curr, compute,
-        INCR + EXPIRE curr if allowed. Atomicity is what prevents two nodes from
-        both admitting the 100th request.
+        Equivalent to a single Redis Lua script on a sorted set:
+        ZREMRANGEBYSCORE (drop entries older than the window), ZCARD, then ZADD
+        if allowed. Atomicity is what prevents two nodes from both admitting
+        the 100th request. Only admitted requests are logged, so a key never
+        stores more than ``limit`` timestamps.
         """
         if not self.available:
             raise StoreUnavailable("redis: connection refused")
         with self._lock:
             self.calls += 1
             now = self.clock.now()
-            idx = int(now // window)
-            elapsed = (now - idx * window) / window
-            prev = self._get(f"{key}:{idx - 1}")
-            curr = self._get(f"{key}:{idx}")
-            estimate = prev * (1 - elapsed) + curr
-            if estimate + 1 > limit:
-                return False, estimate
-            self._data[f"{key}:{idx}"] = (curr + 1, (idx + 2) * window)  # keep for next window
-            return True, estimate + 1
+            log = self._logs.setdefault(key, deque())
+            # The window is (now - window, now]: a request exactly `window`
+            # seconds old no longer counts. Timestamps arrive in order, so the
+            # oldest ones are always at the left end.
+            while log and log[0] <= now - window:
+                log.popleft()
+            if len(log) >= limit:
+                return False, len(log)
+            log.append(now)
+            return True, len(log)
 
 
 class LocalFixedWindow:
@@ -112,7 +113,7 @@ class GatewayNode:
 
     def allow(self, api_key: str) -> bool:
         try:
-            allowed, _ = self.store.sliding_window_acquire(f"rl:{api_key}", self.limit, self.window)
+            allowed, _ = self.store.sliding_log_acquire(f"rl:{api_key}", self.limit, self.window)
             return allowed
         except StoreUnavailable:
             self.degraded_decisions += 1

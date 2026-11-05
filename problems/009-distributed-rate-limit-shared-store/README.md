@@ -25,18 +25,21 @@ In the simulation (a client sending 50 requests/second for 5 minutes):
 | Local limit 100, 10 nodes | 1,000 |
 | Local limit 100, 20 nodes | 2,000 |
 | Local limit 10 (= 100/10), sticky client sending 80/min | 10 |
-| **Shared sliding window, 10 or 20 nodes** | **≤ 100 in any 60 s window** |
+| **Shared sliding log, 10 or 20 nodes** | **≤ 100 in any 60 s window** |
 
 ## Solution
-`SharedStore.sliding_window_acquire` + `GatewayNode` in `solution.py`:
+`SharedStore.sliding_log_acquire` + `GatewayNode` in `solution.py`:
 
-1. **Shared counters** keyed by `rl:<api key>:<window index>` in a central
-   store (Redis in production), so every node sees the same count.
-2. **Sliding window counter:** `estimate = prev × (1 − elapsed fraction) +
-   curr`. It needs only two integers per key, avoids the double burst a fixed
-   window allows at its boundary, and does not reset at the minute mark: after
-   a 100-request burst, a key gets 0 more at t = 60 s and 50 more at t = 90 s.
-3. **Atomic check-and-increment** (one Lua script in Redis). Ten threads
+1. **Shared state** keyed by `rl:<api key>` in a central store (Redis in
+   production), so every node sees the same count.
+2. **Sliding log:** the store keeps the timestamps of admitted requests from
+   the last 60 seconds (a sorted set in Redis) and admits a request only if
+   fewer than 100 are left after dropping older ones. It does not reset at the
+   minute mark: after 50 requests at t = 0 s and 50 at t = 30 s, a key gets
+   exactly 50 more at t = 60 s. Only admitted requests are stored, so memory
+   per key is bounded by the limit (100 timestamps).
+3. **Atomic check-and-record** (one Lua script in Redis:
+   `ZREMRANGEBYSCORE`, `ZCARD`, `ZADD`). Ten threads
    making 500 concurrent attempts against a limit of 100 get exactly 100 through.
    A separate GET then INCR from each node would let several nodes admit the
    "last" request.
@@ -45,7 +48,7 @@ In the simulation (a client sending 50 requests/second for 5 minutes):
    fleet near the quota (100 admitted in the outage test) without making the
    rate limiter a hard dependency of the whole API.
 
-The result is independent of fleet size: 496 requests admitted over 5 minutes
+The result is independent of fleet size: 500 requests admitted over 5 minutes
 with either 10 or 20 nodes, and a sticky client at 80/min gets all 400 of its requests.
 
 ## Trade-offs
@@ -56,10 +59,15 @@ with either 10 or 20 nodes, and a sticky client at 80/min gets all 400 of its re
 - **The store becomes critical infrastructure.** It needs replication and
   monitoring; the fallback policy (fail open, fail closed or per-node share,
   as here) is a business decision.
-- The sliding window counter is an approximation that assumes requests in
-  the previous window were spread evenly. A sliding *log* is exact but stores
-  every timestamp; GCRA/token bucket in the store is another common choice
-  (see backend problem 002 for the single-node token bucket).
+- An earlier version used a **sliding window counter** (`prev × (1 − elapsed
+  fraction) + curr`, two integers per key). It assumes the previous window's
+  requests were spread evenly, so a client that sends 100 requests in the last
+  second of a minute and keeps sending got **198** requests through in one
+  rolling 60 s window. The sliding log is exact (tested with that same burst)
+  at the cost of up to `limit` timestamps per key, which matters for plans
+  with very large limits. GCRA/token bucket in the store is exact with one
+  value per key and is the usual choice there (see backend problem 002 for
+  the single-node token bucket).
 - Multi-region deployments either accept per-region quotas or pay
   cross-region latency for a global counter.
 

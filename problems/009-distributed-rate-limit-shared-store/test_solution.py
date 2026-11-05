@@ -36,7 +36,7 @@ class SharedSlidingWindow(unittest.TestCase):
             _, fleet = shared_fleet(clock, nodes)
             admitted = simulate(fleet, clock, ABUSIVE_RATE, 300)
             self.assertEqual(max_in_any_window(admitted), LIMIT)
-            self.assertEqual(len(admitted), 496)     # ~100/min over 5 minutes, any fleet size
+            self.assertEqual(len(admitted), 500)     # 100/min over 5 minutes, any fleet size
 
     def test_sticky_client_within_quota_is_not_blocked(self):
         clock = FakeClock()
@@ -54,14 +54,40 @@ class SharedSlidingWindow(unittest.TestCase):
 
     def test_window_slides_rather_than_resets(self):
         clock = FakeClock()
-        store, fleet = shared_fleet(clock, 2)
-        for _ in range(LIMIT):                       # burst at t=0
+        _, fleet = shared_fleet(clock, 2)
+        for _ in range(LIMIT // 2):                  # 50 at t=0
             fleet[0].allow("k")
-        clock.advance(60)                            # start of next window: prev still counts fully
-        self.assertFalse(fleet[1].allow("k"))
-        clock.advance(30)                            # half of prev window still overlaps -> 50 used
+        clock.advance(30)
+        for _ in range(LIMIT // 2):                  # 50 at t=30
+            fleet[1].allow("k")
+        clock.advance(30)                            # t=60: only the t=0 requests have aged out
         allowed = sum(fleet[i % 2].allow("k") for i in range(100))
-        self.assertEqual(allowed, 50)
+        self.assertEqual(allowed, 50)                # a fixed window would reset and allow 100
+
+    def test_request_exactly_one_window_old_no_longer_counts(self):
+        clock = FakeClock()
+        _, fleet = shared_fleet(clock, 1)
+        for _ in range(LIMIT):
+            fleet[0].allow("k")
+        clock.advance(59.999)
+        self.assertFalse(fleet[0].allow("k"))
+        clock.advance(0.001)
+        self.assertTrue(fleet[0].allow("k"))
+
+    def test_burst_across_minute_boundary_stays_within_quota(self):
+        clock = FakeClock(59.0)
+        _, fleet = shared_fleet(clock, 1)
+        admitted = []
+        for _ in range(LIMIT):                       # 100 requests in the last second of a minute
+            if fleet[0].allow("k"):
+                admitted.append(clock.now())
+            clock.advance(0.01)
+        clock.t = 60.0
+        while clock.t < 119.0:                       # then keep sending 10/s into the next minute
+            if fleet[0].allow("k"):
+                admitted.append(clock.now())
+            clock.advance(0.1)
+        self.assertEqual(max_in_any_window(admitted), LIMIT)   # the counter version admitted 198
 
     def test_concurrent_nodes_cannot_overshoot(self):
         clock = FakeClock()
