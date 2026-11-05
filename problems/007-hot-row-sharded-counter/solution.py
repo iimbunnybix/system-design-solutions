@@ -38,9 +38,11 @@ class ShardedCounter:
     def set_shards(self, key: str, n: int) -> None:
         """Grow the shard count for a hot key. Shrinking is not allowed because rows
         above the new count would be silently ignored by reads."""
-        if n < self.shards_for(key):
-            raise ValueError("shard count can only grow (merge rows offline to shrink)")
+        # Check and write under one lock: otherwise a concurrent, larger resize
+        # can land between them and this call would shrink the count.
         with self._meta:
+            if n < self.shards_for(key):
+                raise ValueError("shard count can only grow (merge rows offline to shrink)")
             self._shards[key] = n
 
     def increment(self, key: str, amount: int = 1) -> None:

@@ -3,6 +3,32 @@ import unittest
 
 from solution import ShardedCounter, recommended_shards, simulate_row_contention
 
+class CounterWithRacingResize(ShardedCounter):
+    """Test double: the first shards_for() call after arm() runs a competing
+    resize to ``racing_n`` in another thread, as a second app instance would."""
+
+    def arm(self, key: str, racing_n: int) -> None:
+        self._racing = (key, racing_n)
+
+    def shards_for(self, key: str) -> int:
+        current = super().shards_for(key)
+        racing = getattr(self, "_racing", None)
+        if racing is not None:
+            self._racing = None
+            racer = threading.Thread(target=self._resize_and_like, args=racing)
+            racer.start()
+            # Give the racer a chance to finish; if set_shards holds the lock
+            # around check-and-write, the racer blocks and finishes later.
+            racer.join(timeout=0.2)
+            self.racer = racer
+        return current
+
+    def _resize_and_like(self, key: str, n: int) -> None:
+        self.set_shards(key, n)
+        for _ in range(100):
+            self.increment(key)
+
+
 RATE = 2000.0        # likes per second on one viral post
 HOLD = 0.001         # 1 ms row-lock hold per UPDATE
 DURATION = 5.0
@@ -69,6 +95,14 @@ class Sharding(unittest.TestCase):
         c = ShardedCounter(default_shards=4)
         with self.assertRaises(ValueError):
             c.set_shards("p", 2)
+
+    def test_concurrent_resizes_never_shrink_the_counter_or_hide_counts(self):
+        c = CounterWithRacingResize(seed=1)
+        c.arm("p", 8)
+        c.set_shards("p", 4)            # checked against 1 while a resize to 8 races
+        c.racer.join()
+        self.assertEqual(c.shards_for("p"), 8)
+        self.assertEqual(c.value("p"), 100)
 
     def test_cold_keys_and_negative_amounts(self):
         c = ShardedCounter(seed=1)
