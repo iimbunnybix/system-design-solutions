@@ -58,6 +58,15 @@ class Sharding(unittest.TestCase):
         p99 = [simulate_row_contention(RATE, DURATION, n, HOLD, seed=1)["p99_wait"] for n in (1, 2, 4, 16)]
         self.assertEqual(p99, sorted(p99, reverse=True))
 
+    def test_readme_table_matches_the_model(self):
+        # (shards, p50 wait ms, p99 wait ms) exactly as printed in README.md
+        readme_rows = [(1, 2630, 5150), (2, 87, 167), (4, 0.05, 3.2), (16, 0, 1.0)]
+        for shards, p50_ms, p99_ms in readme_rows:
+            r = simulate_row_contention(RATE, DURATION, shards, HOLD, seed=1)
+            self.assertEqual(r["writes"], 10210)
+            self.assertAlmostEqual(r["p50_wait"] * 1000, p50_ms, delta=max(0.005, p50_ms * 0.01))
+            self.assertAlmostEqual(r["p99_wait"] * 1000, p99_ms, delta=max(0.05, p99_ms * 0.01))
+
     def test_recommended_shards(self):
         self.assertEqual(recommended_shards(2000, 0.001), 4)
         self.assertEqual(recommended_shards(10, 0.001), 1)

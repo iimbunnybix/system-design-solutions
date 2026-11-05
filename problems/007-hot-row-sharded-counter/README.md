@@ -35,13 +35,14 @@ starved the rest of the site.
   and existing counts are preserved. Shrinking is refused because reads would
   ignore the higher rows.
 
-Same model, same load:
+Same model, same load (`seed=1`; `test_readme_table_matches_the_model` checks
+every row):
 
 | Shards | Utilization per row | p50 wait | p99 wait |
 |---|---|---|---|
 | 1 | 2.0 | 2.6 s | 5.2 s |
 | 2 | 1.0 | 87 ms | 167 ms |
-| 4 | 0.5 | 0 | 3.2 ms |
+| 4 | 0.5 | 0.05 ms | 3.2 ms |
 | 16 | 0.125 | 0 | 1.0 ms |
 
 A threaded test with 8 writers × 2,000 increments over 8 shards ends at
