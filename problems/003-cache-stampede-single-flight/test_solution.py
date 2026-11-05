@@ -85,6 +85,46 @@ class StampedeTests(unittest.TestCase):
         self.assertEqual(cache.get("k"), "k-v2")
         self.assertEqual(db.calls, 2)
 
+    def test_many_stale_reads_schedule_exactly_one_background_refresh(self):
+        clock, db, jobs = FakeClock(), CountingDB(), []
+        cache = StampedeProtectedCache(db, ttl_s=60, stale_s=30, beta=0, clock=clock,
+                                       background=jobs.append)
+        cache.get("k")
+        clock.t += 61                                     # soft-expired
+        for _ in range(10):
+            cache.get("k")
+        self.assertEqual(len(jobs), 1)
+        for job in jobs:
+            job()
+        self.assertEqual(db.calls, 2)                     # one initial load + one refresh
+
+    def test_failed_background_refresh_allows_a_later_retry(self):
+        clock, db, jobs = FakeClock(), CountingDB(), []
+        cache = StampedeProtectedCache(db, ttl_s=60, stale_s=30, beta=0, clock=clock,
+                                       background=jobs.append)
+        cache.get("k")
+        clock.t += 61
+        db.fail = True
+        cache.get("k")
+        jobs[0]()                                         # refresh fails, stale kept
+        self.assertEqual(cache.get("k"), "k-v1")
+        self.assertEqual(len(jobs), 2)                    # the claim was released
+
+    def test_rejected_background_job_does_not_leave_key_stuck(self):
+        clock, db = FakeClock(), CountingDB()
+
+        def rejecting_executor(job):
+            raise RuntimeError("queue full")
+
+        cache = StampedeProtectedCache(db, ttl_s=60, stale_s=30, beta=0, clock=clock,
+                                       background=rejecting_executor)
+        cache.get("k")
+        clock.t += 61
+        with self.assertRaises(RuntimeError):
+            cache.get("k")
+        clock.t += 30                                     # hard-expired now
+        self.assertEqual(cache.get("k"), "k-v2")          # sync load not blocked
+
     def test_hard_expiry_loads_synchronously(self):
         clock, db = FakeClock(), CountingDB()
         cache = StampedeProtectedCache(db, ttl_s=60, stale_s=30, beta=0, clock=clock,

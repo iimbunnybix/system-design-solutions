@@ -73,14 +73,13 @@ class StampedeProtectedCache:
         self._lock = threading.Lock()
 
     # -- single flight -----------------------------------------------------------
-    def _load(self, key: Hashable, force: bool = False) -> Any:
+    def _load(self, key: Hashable) -> Any:
         with self._lock:
-            if not force:
-                # Re-check under the lock: a flight may have finished between the
-                # caller's lock-free read and now (otherwise we'd load twice).
-                e = self._data.get(key)
-                if e is not None and self.clock() < e.expires_at:
-                    return e.value
+            # Re-check under the lock: a flight may have finished between the
+            # caller's lock-free read and now (otherwise we'd load twice).
+            e = self._data.get(key)
+            if e is not None and self.clock() < e.expires_at:
+                return e.value
             flight = self._flights.get(key)
             leader = flight is None
             if leader:
@@ -90,6 +89,10 @@ class StampedeProtectedCache:
             if flight.error:
                 raise flight.error
             return flight.value
+        return self._run_flight(key, flight)
+
+    def _run_flight(self, key: Hashable, flight: _Flight) -> Any:
+        """Run the loader as the leader of an already-registered flight."""
         start = self.clock()
         try:
             value = self.loader(key)
@@ -108,15 +111,29 @@ class StampedeProtectedCache:
             flight.done.set()
 
     def _refresh_async(self, key: Hashable) -> None:
+        # Claim the refresh when it is *scheduled*, not when it runs: with a
+        # queueing executor, every stale read before the job starts would
+        # otherwise schedule its own refresh and stampede the database again.
         with self._lock:
             if key in self._flights:
                 return              # someone is already refreshing
+            flight = self._flights[key] = _Flight()
+
         def run():
             try:
-                self._load(key, force=True)
+                self._run_flight(key, flight)
             except Exception:       # keep serving stale; next read will retry
                 pass
-        self.background(run)
+
+        try:
+            self.background(run)
+        except BaseException:
+            # The executor refused the job: release the claim so the key is
+            # not stuck "refreshing" forever.
+            with self._lock:
+                self._flights.pop(key, None)
+            flight.done.set()
+            raise
 
     # -- public API ------------------------------------------------------------------
     def should_refresh_early(self, e: Entry, now: float) -> bool:
