@@ -39,6 +39,18 @@ def oracle(products, query, prefix_last=True):
     return out
 
 
+class CountingLengths(dict):
+    """doc_len stand-in that counts how many document lengths are read in bulk."""
+
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        self.bulk_reads = 0
+
+    def values(self):
+        self.bulk_reads += len(self)
+        return super().values()
+
+
 class Fixture(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -110,6 +122,28 @@ class IndexCorrectness(Fixture):
         idx.remove(1)
         self.assertEqual(idx.search("kettle"), [])
         self.assertNotIn("kettle", idx.postings)
+
+    def test_ranking_does_not_rescan_every_length_per_candidate(self):
+        idx = InvertedIndex()
+        for pid, name in self.products.items():
+            idx.add(pid, name)
+        idx.doc_len = CountingLengths(idx.doc_len)
+        matches = len(idx.match_all("black"))           # 3,345 of 20,000 products
+        self.assertGreater(matches, 3_000)
+        idx.search("black")
+        # The original summed all 20,000 lengths for each of the 3,345 matches.
+        self.assertLess(idx.doc_len.bulk_reads, N_PRODUCTS)
+
+    def test_total_length_tracks_add_rename_and_remove(self):
+        idx = InvertedIndex()
+        idx.add(1, "Red Kettle")
+        idx.add(2, "Trail Running Shoes")
+        idx.add(1, "Blue Steel Kettle")                 # rename replaces the old length
+        self.assertEqual(idx.total_len, 6)
+        idx.remove(2)
+        self.assertEqual(idx.total_len, 3)
+        idx.remove(1)
+        self.assertEqual(idx.total_len, 0)
 
     def test_empty_and_punctuation_queries(self):
         self.assertEqual(self.idx.search(""), [])

@@ -64,6 +64,9 @@ class InvertedIndex:
         self.postings: dict[str, set[int]] = {}
         self.term_freqs: dict[int, Counter] = {}
         self.doc_len: dict[int, int] = {}
+        # Running sum of all document lengths, so BM25's average length is
+        # O(1) per query instead of a pass over the whole catalog per candidate.
+        self.total_len = 0
         self._vocab: list[str] = []      # sorted, for prefix lookup
         self._vocab_dirty = False
         self.postings_examined = 0
@@ -76,6 +79,7 @@ class InvertedIndex:
         tf = Counter(tokens)
         self.term_freqs[doc_id] = tf
         self.doc_len[doc_id] = len(tokens)
+        self.total_len += len(tokens)
         for term in tf:
             if term not in self.postings:
                 self.postings[term] = set()
@@ -86,7 +90,7 @@ class InvertedIndex:
         tf = self.term_freqs.pop(doc_id, None)
         if tf is None:
             return
-        del self.doc_len[doc_id]
+        self.total_len -= self.doc_len.pop(doc_id)
         for term in tf:
             ids = self.postings[term]
             ids.discard(doc_id)
@@ -138,9 +142,8 @@ class InvertedIndex:
             result &= s
         return result, groups
 
-    def _bm25(self, doc_id: int, groups: list[list[str]]) -> float:
-        n = len(self.doc_len)
-        avgdl = sum(self.doc_len.values()) / n
+    def _bm25(self, doc_id: int, groups: list[list[str]], n: int, avgdl: float) -> float:
+        """BM25 score of one candidate. ``n`` and ``avgdl`` are computed once per query."""
         dl = self.doc_len[doc_id]
         tf_doc = self.term_freqs[doc_id]
         score = 0.0
@@ -163,7 +166,12 @@ class InvertedIndex:
         if not terms or not self.doc_len:
             return []
         ids, groups = self._candidates(terms, prefix_last)
-        ranked = sorted(ids, key=lambda d: (-self._bm25(d, groups), d))
+        # Catalog-wide statistics once per query, not once per candidate:
+        # recomputing the average length inside _bm25 made ranking
+        # O(matches x catalog size).
+        n = len(self.doc_len)
+        avgdl = self.total_len / n
+        ranked = sorted(ids, key=lambda d: (-self._bm25(d, groups, n, avgdl), d))
         return ranked[:limit]
 
     def match_all(self, query: str, prefix_last: bool = True) -> set[int]:

@@ -43,6 +43,14 @@ structure behind Lucene, Elasticsearch and OpenSearch:
    works and "s" cannot explode into a huge union.
 5. **BM25 ranking** (k1 = 1.2, b = 0.75): rarer terms and repeated terms score
    higher, long names are normalised. Ties break by id for stable paging.
+   The catalog-wide statistics (document count, average length from a
+   running `total_len`) are computed once per query. An earlier version
+   re-summed every product's length for each candidate, so ranking cost
+   matches × catalog size: on this machine "black" (3,345 of 20,000 matches)
+   took about 500 ms, and 3-5 ms after the fix (best of 3, several runs). A
+   query that broad still scores every match, so it stays slower than the
+   unranked scan (about 2.5 ms); selective queries like "waterproof jacket"
+   take about 0.2 ms vs 2.6 ms for the scan.
 
 Correctness is checked against a brute-force oracle for eight queries,
 including word-order swaps, accents, prefixes and a query with no matches.
