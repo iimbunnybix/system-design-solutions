@@ -37,7 +37,10 @@ networks use:
    Reading `u5`'s feed costs 2 list reads: the inbox and one celebrity outbox.
 4. **Correctness details:** posts pushed before an author crossed the
    threshold are deduplicated by id; posts from unfollowed authors are filtered
-   out; inboxes are bounded (`inbox_limit`).
+   out; inboxes are bounded (`inbox_limit`). An author whose posts were ever
+   *not* pushed keeps being pulled at read time even after dropping below the
+   threshold, so one unfollow cannot make those posts vanish from the other
+   followers' timelines.
 
 A randomized test (203 authors including 3 celebrities, 2,000 posts with
 frequent timestamp ties) checks that 30 users' timelines equal a brute-force

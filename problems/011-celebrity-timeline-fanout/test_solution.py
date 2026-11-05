@@ -91,6 +91,27 @@ class HybridFix(unittest.TestCase):
         self.assertEqual([p.ts for p in tl], [2.0, 1.0])
         self.assertEqual(len({p.post_id for p in tl}), 2)
 
+    def test_celebrity_posts_survive_dropping_below_threshold(self):
+        # Issue #14: one unfollow took the author under the threshold and
+        # every remaining follower lost the posts that were never pushed.
+        feed = HybridFeed(celebrity_threshold=3)
+        for user in ("u1", "u2", "u3"):
+            feed.follow(user, "star")
+        post = feed.post("star", 1.0)
+        feed.unfollow("u3", "star")
+        self.assertEqual(feed.timeline("u1"), [post])
+        self.assertEqual(feed.timeline("u3"), [])
+
+    def test_posts_after_dropping_below_threshold_are_pushed_again(self):
+        feed = HybridFeed(celebrity_threshold=2)
+        feed.follow("u1", "star")
+        feed.follow("u2", "star")
+        pulled = feed.post("star", 1.0)
+        feed.unfollow("u2", "star")
+        pushed = feed.post("star", 2.0)
+        self.assertEqual(list(feed.inbox["u1"]), [pushed])
+        self.assertEqual(feed.timeline("u1"), [pushed, pulled])
+
     def test_unfollow_hides_previously_pushed_posts(self):
         feed = HybridFeed(celebrity_threshold=100)
         feed.follow("a", "x")

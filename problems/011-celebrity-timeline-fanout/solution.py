@@ -79,19 +79,26 @@ class HybridFeed(_Base):
     def __init__(self, celebrity_threshold: int = 10_000, inbox_limit: int = 800) -> None:
         super().__init__(inbox_limit)
         self.celebrity_threshold = celebrity_threshold
+        # Authors who have at least one post that was NOT pushed to inboxes.
+        # Their outbox must be pulled at read time for as long as those posts
+        # exist, even if the author later drops below the celebrity threshold
+        # (deciding from the *current* follower count made old posts vanish).
+        self.authors_with_unpushed_posts: Set[str] = set()
 
     def is_celebrity(self, author: str) -> bool:
         return len(self.followers[author]) >= self.celebrity_threshold
 
     def post(self, author: str, ts: float) -> Post:
         post = self._new_post(author, ts)
-        if not self.is_celebrity(author):
+        if self.is_celebrity(author):
+            self.authors_with_unpushed_posts.add(author)
+        else:
             for f in self.followers[author]:
                 self._push(self.inbox[f], post)
         return post
 
     def timeline(self, user: str, limit: int = 20) -> List[Post]:
-        """Merge the user's inbox with the outboxes of celebrities they follow.
+        """Merge the user's inbox with the outboxes of followed authors that have un-pushed posts.
 
         Each source is already sorted newest-first, so a k-way merge stops after
         ``limit`` distinct posts. Posts that were pushed before an author became
@@ -100,7 +107,7 @@ class HybridFeed(_Base):
         sources: List[Iterable[Post]] = [self.inbox[user]]
         self.reads += 1
         for author in self.following[user]:
-            if self.is_celebrity(author):
+            if author in self.authors_with_unpushed_posts:
                 sources.append(self.outbox[author])
                 self.reads += 1
         merged = heapq.merge(*sources, key=lambda p: (p.ts, p.post_id), reverse=True)
