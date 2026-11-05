@@ -29,6 +29,7 @@ Every problem folder has the same structure:
 | 012 | ["Finding drivers near you" took longer every month as the fleet grew, and the matching service fell over on Friday nights](problems/012-geohash-nearby-drivers) |
 | 013 | [Products showed "out of stock" while the warehouse shelves were full, and some customers were charged for orders that never shipped](problems/013-saga-compensation-stuck-inventory) |
 | 014 | [Users' saved settings flipped back to old values at random, and got much worse after a storage node came back from maintenance](problems/014-quorum-reads-stale-replica) |
+| 015 | [Two replicas quietly disagreed for weeks, and the nightly repair job that should have fixed it ran for hours and saturated the network](problems/015-merkle-tree-replica-repair) |
 <!-- INDEX:END -->
 
 ## Run the tests
