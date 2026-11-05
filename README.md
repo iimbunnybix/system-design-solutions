@@ -36,6 +36,7 @@ Every problem folder has the same structure:
 | 019 | [A storage node lost power and then crash-looped on restart, and after a manual fix one account showed a wrong balance](problems/019-torn-write-log-recovery) |
 | 020 | [The database cluster failed over dozens of times a day, and each time the "dead" primary turned out to be healthy](problems/020-phi-accrual-failure-detector) |
 | 021 | [Two customers signed up with the same username after the user table was sharded](problems/021-cross-shard-unique-username) |
+| 022 | [Users' profile edits silently reverted, but only when saved through one data center](problems/022-lww-clock-skew-hybrid-logical-clock) |
 <!-- INDEX:END -->
 
 ## Run the tests
