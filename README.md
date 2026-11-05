@@ -38,6 +38,7 @@ Every problem folder has the same structure:
 | 021 | [Two customers signed up with the same username after the user table was sharded](problems/021-cross-shard-unique-username) |
 | 022 | [Users' profile edits silently reverted, but only when saved through one data center](problems/022-lww-clock-skew-hybrid-logical-clock) |
 | 023 | [After a switch failure, two nodes both claimed to be leader and customer balances diverged](problems/023-split-brain-majority-leader-election) |
+| 024 | [Search pages took half a second at p99 even though every shard answered in 10 ms on average](problems/024-hedged-requests-tail-latency) |
 <!-- INDEX:END -->
 
 ## Run the tests
