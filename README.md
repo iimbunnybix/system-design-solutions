@@ -49,6 +49,7 @@ Every problem folder has the same structure:
 | 032 | [Merchants changed a price, and shoppers kept seeing the old one for exactly 10 minutes even though the cache had been cleared](problems/032-cache-fill-from-lagging-replica) |
 | 033 | [Messages users had deleted reappeared in their chats after a database node came back from a three-day repair](problems/033-tombstone-gc-zombie-resurrection) |
 | 034 | [One tenant's month-end dashboard refresh timed out every query on one worker while nine others sat half idle](problems/034-bounded-load-consistent-hashing) |
+| 035 | [One customer uploaded 2,000 reports and every other customer's export sat "queued" for over a minute and a half](problems/035-noisy-tenant-fifo-queue-fair-scheduling) |
 <!-- INDEX:END -->
 
 ## Run the tests
