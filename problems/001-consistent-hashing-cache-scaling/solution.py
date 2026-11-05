@@ -19,13 +19,22 @@ class ConsistentHashRing:
     def add_node(self, node: str, weight: float = 1.0) -> None:
         if node in self.weights:
             raise ValueError(f"{node} already in ring")
+        if weight < 0:
+            raise ValueError(f"weight must be >= 0, got {weight}")
         self.weights[node] = weight
-        for i in range(max(1, int(self.vnodes * weight))):
+        for i in range(self._vnode_count(weight)):
             pos = _h(f"{node}#{i}")
             while pos in self._owner:              # extremely rare collision
                 pos = (pos + 1) % 2 ** 32
             self._owner[pos] = node
             bisect.insort(self._ring, pos)
+
+    def _vnode_count(self, weight: float) -> int:
+        """Virtual nodes for a weight: 0 means 'member but no traffic' (draining);
+        any positive weight gets at least one point so it is never silently ignored."""
+        if weight == 0:
+            return 0
+        return max(1, int(self.vnodes * weight))
 
     def remove_node(self, node: str) -> None:
         if node not in self.weights:

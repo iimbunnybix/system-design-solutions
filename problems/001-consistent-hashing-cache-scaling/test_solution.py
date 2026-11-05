@@ -66,5 +66,33 @@ class ConsistentHashingTests(unittest.TestCase):
             r.add_node("redis-0")
 
 
+class FixZeroAndNegativeWeights(unittest.TestCase):
+    def test_zero_weight_node_receives_no_keys(self):
+        r = ConsistentHashRing()
+        r.add_node("a")
+        r.add_node("drain", weight=0)
+        load = Counter(r.get_node(k) for k in KEYS[:20_000])
+        self.assertEqual(load["drain"], 0)
+
+    def test_ring_with_only_zero_weight_nodes_is_empty(self):
+        r = ConsistentHashRing()
+        r.add_node("drain", weight=0)
+        with self.assertRaises(RuntimeError):
+            r.get_node("x")
+
+    def test_negative_weight_is_rejected(self):
+        r = ConsistentHashRing()
+        with self.assertRaises(ValueError):
+            r.add_node("bad", weight=-1)
+        self.assertNotIn("bad", r.weights)
+
+    def test_zero_weight_node_can_be_removed(self):
+        r = ConsistentHashRing()
+        r.add_node("a")
+        r.add_node("drain", weight=0)
+        r.remove_node("drain")
+        self.assertEqual(r.get_node("x"), "a")
+
+
 if __name__ == "__main__":
     unittest.main()

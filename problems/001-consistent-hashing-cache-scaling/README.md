@@ -19,7 +19,7 @@ So scaling the cache *up* behaves like flushing it.
 - Adding a server only takes over the arcs just before its points, so only
   about **1/(N+1)** of keys move; removing one moves only its own keys.
 - Each physical server gets many **virtual nodes** (e.g. 150 points) so load is
-  even; weights let bigger machines take more points.
+  even; weights let bigger machines take more points, and weight 0 drains a node (it stays a member but owns no keys); negative weights are rejected.
 - Lookup is a binary search over sorted ring positions: O(log V).
 
 The tests measure the actual fraction of 100,000 keys that move and the
