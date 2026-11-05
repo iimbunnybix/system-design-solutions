@@ -31,6 +31,7 @@ Every problem folder has the same structure:
 | 014 | [Users' saved settings flipped back to old values at random, and got much worse after a storage node came back from maintenance](problems/014-quorum-reads-stale-replica) |
 | 015 | [Two replicas quietly disagreed for weeks, and the nightly repair job that should have fixed it ran for hours and saturated the network](problems/015-merkle-tree-replica-repair) |
 | 016 | [During the flash sale half of all checkouts failed with 503, while analytics pings kept getting through](problems/016-priority-load-shedding) |
+| 017 | [One database shard pegged at 100% CPU while the other seven idled, and event ingestion lagged by hours](problems/017-timestamp-key-hot-shard) |
 <!-- INDEX:END -->
 
 ## Run the tests
