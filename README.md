@@ -44,6 +44,7 @@ Every problem folder has the same structure:
 | 027 | [A three-second database slowdown turned into a full outage that only ended when traffic was cut](problems/027-layered-retry-amplification) |
 | 028 | [A 1,000-unit flash deal sold 1,250 units, and 250 customers got "sorry, cancelled" emails after paying](problems/028-flash-deal-oversell-escrow) |
 | 029 | [One product went viral and a quarter of all page loads timed out on a single cache node, while the other nine sat idle](problems/029-hot-cache-key-replication) |
+| 030 | [Fraud scoring was OOM-killed 16 seconds into a sale, and 16,400 orders were never checked](problems/030-credit-based-flow-control) |
 <!-- INDEX:END -->
 
 ## Run the tests
