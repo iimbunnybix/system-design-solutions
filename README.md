@@ -42,6 +42,7 @@ Every problem folder has the same structure:
 | 025 | [Customers got three "your video is ready" emails, and the transcoding queue never emptied](problems/025-visibility-timeout-heartbeat-redelivery) |
 | 026 | [After a shard split, some users' profile changes "saved" successfully and then reverted](problems/026-stale-shard-map-misrouted-writes) |
 | 027 | [A three-second database slowdown turned into a full outage that only ended when traffic was cut](problems/027-layered-retry-amplification) |
+| 028 | [A 1,000-unit flash deal sold 1,250 units, and 250 customers got "sorry, cancelled" emails after paying](problems/028-flash-deal-oversell-escrow) |
 <!-- INDEX:END -->
 
 ## Run the tests
