@@ -41,6 +41,7 @@ Every problem folder has the same structure:
 | 024 | [Search pages took half a second at p99 even though every shard answered in 10 ms on average](problems/024-hedged-requests-tail-latency) |
 | 025 | [Customers got three "your video is ready" emails, and the transcoding queue never emptied](problems/025-visibility-timeout-heartbeat-redelivery) |
 | 026 | [After a shard split, some users' profile changes "saved" successfully and then reverted](problems/026-stale-shard-map-misrouted-writes) |
+| 027 | [A three-second database slowdown turned into a full outage that only ended when traffic was cut](problems/027-layered-retry-amplification) |
 <!-- INDEX:END -->
 
 ## Run the tests
