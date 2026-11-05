@@ -1,8 +1,8 @@
 import threading
 import unittest
 
-from solution import (FakeClock, GatewayNode, LocalFixedWindow, SharedStore, max_in_any_window,
-                      simulate)
+from solution import (FakeClock, GatewayNode, LocalFixedWindow, SharedStore, fallback_share,
+                      max_in_any_window, original_fallback_share, simulate)
 
 LIMIT = 100            # plan: 100 requests per minute per API key
 ABUSIVE_RATE = 50      # requests/second from a misbehaving client (3,000/min)
@@ -10,7 +10,7 @@ ABUSIVE_RATE = 50      # requests/second from a misbehaving client (3,000/min)
 
 def shared_fleet(clock, n, store=None):
     store = store or SharedStore(clock)
-    return store, [GatewayNode(f"gw-{i}", store, clock, LIMIT, fleet_size_hint=n) for i in range(n)]
+    return store, [GatewayNode(f"gw-{i}", store, clock, LIMIT, fleet_size_hint=n, node_index=i) for i in range(n)]
 
 
 class ReproducePerNodeLimits(unittest.TestCase):
@@ -116,6 +116,24 @@ class StoreOutage(unittest.TestCase):
         admitted = simulate(fleet, clock, ABUSIVE_RATE, 60)
         self.assertEqual(len(admitted), LIMIT)       # 10 nodes x 10 each, round-robin
         self.assertTrue(all(n.degraded_decisions > 0 for n in fleet))
+
+    def test_original_share_floor_lets_small_plan_through_on_every_node(self):
+        # 5/min plan on 20 nodes: flooring each share at 1 admits 20/min.
+        shares = [original_fallback_share(5, 20) for _ in range(20)]
+        self.assertEqual(sum(shares), 20)
+
+    def test_small_plan_on_large_fleet_stays_within_quota_during_outage(self):
+        clock = FakeClock()
+        store = SharedStore(clock)
+        store.available = False
+        fleet = [GatewayNode(f"gw-{i}", store, clock, 5, fleet_size_hint=20, node_index=i)
+                 for i in range(20)]
+        admitted = simulate(fleet, clock, ABUSIVE_RATE, 60)
+        self.assertEqual(len(admitted), 5)
+
+    def test_shares_add_up_to_the_limit_when_it_does_not_divide_evenly(self):
+        self.assertEqual(sum(fallback_share(105, 10, i) for i in range(10)), 105)
+        self.assertEqual(sum(fallback_share(5, 20, i) for i in range(20)), 5)
 
     def test_recovers_when_store_returns(self):
         clock = FakeClock()

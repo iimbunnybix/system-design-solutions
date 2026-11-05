@@ -44,9 +44,13 @@ In the simulation (a client sending 50 requests/second for 5 minutes):
    A separate GET then INCR from each node would let several nodes admit the
    "last" request.
 4. **Degraded mode:** if the store is unreachable, each node falls back to a
-   local limit of `limit / fleet_size` (10). With round-robin that keeps the
-   fleet near the quota (100 admitted in the outage test) without making the
-   rate limiter a hard dependency of the whole API.
+   local limit: its slice of the quota (`fallback_share`). Every node gets
+   `limit // fleet_size` and the first `limit % fleet_size` nodes one extra,
+   so the slices add up to exactly the limit (10 each for 100 on 10 nodes; 100
+   admitted in the outage test). An earlier version floored each slice at 1,
+   so a 5/min plan on 20 nodes admitted 20/min during an outage; now nodes
+   0-4 admit 1 each, the other 15 fail closed, and the fleet admits 5. This
+   keeps the rate limiter from being a hard dependency of the whole API.
 
 The result is independent of fleet size: 500 requests admitted over 5 minutes
 with either 10 or 20 nodes, and a sticky client at 80/min gets all 400 of its requests.

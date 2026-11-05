@@ -91,6 +91,31 @@ class LocalFixedWindow:
         return True
 
 
+def original_fallback_share(limit: int, fleet_size: int) -> int:
+    """First outage policy: floor each node's share at 1 request.
+
+    Wrong for small plans: 5/min on 20 nodes gives every node 1, so the fleet
+    admits 20/min, the "quota x fleet size" bug again.
+    """
+    return max(1, limit // max(1, fleet_size))
+
+
+def fallback_share(limit: int, fleet_size: int, node_index: int) -> int:
+    """Whole requests per window this node may admit while the store is down.
+
+    The quota is dealt out like cards: every node gets ``limit // fleet_size``
+    and the first ``limit % fleet_size`` nodes get one extra. The shares add up
+    to exactly ``limit``, so the fleet total never exceeds the quota, even when
+    the plan is smaller than the fleet (5/min on 20 nodes: nodes 0-4 admit 1
+    each, nodes 5-19 fail closed).
+    """
+    fleet_size = max(1, fleet_size)
+    base, extra = divmod(limit, fleet_size)
+    if node_index % fleet_size < extra:
+        return base + 1
+    return base
+
+
 @dataclass
 class GatewayNode:
     """A gateway node using the shared limiter, with a local fallback."""
@@ -101,14 +126,13 @@ class GatewayNode:
     limit: int
     window: float = 60.0
     fleet_size_hint: int = 1
+    node_index: int = 0
     fallback: Optional[LocalFixedWindow] = None
     degraded_decisions: int = 0
 
     def __post_init__(self) -> None:
         if self.fallback is None:
-            # Fail "mostly closed": while the store is down each node allows only
-            # its share of the quota, so the fleet total stays near the limit.
-            share = max(1, self.limit // max(1, self.fleet_size_hint))
+            share = fallback_share(self.limit, self.fleet_size_hint, self.node_index)
             self.fallback = LocalFixedWindow(self.clock, share, self.window)
 
     def allow(self, api_key: str) -> bool:
