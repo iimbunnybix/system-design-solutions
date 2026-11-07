@@ -52,6 +52,7 @@ Every problem folder has the same structure:
 | 035 | [One customer uploaded 2,000 reports and every other customer's export sat "queued" for over a minute and a half](problems/035-noisy-tenant-fifo-queue-fair-scheduling) |
 | 036 | [Order events piled up for seconds at the lunch peak, though the log server's CPU and disk bandwidth were nearly idle](problems/036-per-write-fsync-group-commit) |
 | 037 | [The weekly-active-users dashboard showed 7x more users than had signed up, and it grew with every shard added](problems/037-summed-shard-distinct-counts-hyperloglog) |
+| 038 | [Large video uploads from phones kept restarting at 0% and most never finished, while users' mobile data ran out](problems/038-flaky-network-upload-restarts-from-zero) |
 <!-- INDEX:END -->
 
 ## Run the tests
