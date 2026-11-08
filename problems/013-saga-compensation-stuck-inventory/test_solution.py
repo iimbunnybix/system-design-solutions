@@ -1,8 +1,8 @@
 import random
 import unittest
 
-from solution import (Crash, Inventory, Payments, SagaLog, SagaOrchestrator, Shipping,
-                      TransientError, naive_place_order, order_steps)
+from solution import (BusinessError, Crash, Inventory, Payments, SagaLog, SagaOrchestrator,
+                      Shipping, Step, TransientError, naive_place_order, order_steps)
 
 N = 1_000
 
@@ -130,6 +130,37 @@ class CrashRecovery(unittest.TestCase):
         inv, pay, ship = Inventory({"sku": 1}), Payments(), Shipping()
         SagaOrchestrator(log).run("o1", order_steps(inv, pay, ship, "sku", 1, 100))
         self.assertEqual(SagaOrchestrator(log).recover(lambda s: []), [])
+
+
+def always_times_out(saga_id):
+    """A request that is still in flight: the participant has not processed it yet."""
+    raise TransientError("timeout")
+
+
+class LateActionAfterCompensation(unittest.TestCase):
+    def test_late_charge_after_refund_is_rejected(self):
+        inv, pay, ship = Inventory({"sku": 5}), Payments(), Shipping()
+        steps = order_steps(inv, pay, ship, "sku", 1, 100)
+        steps[1] = Step("charge_card", always_times_out, pay.refund)
+        rec = SagaOrchestrator(SagaLog(), max_attempts=2).run("o1", steps)
+        self.assertEqual(rec.status, "compensated")
+        with self.assertRaises(BusinessError):
+            pay.charge("o1", 100)                # the delayed request finally arrives
+        self.assertEqual(pay.net_charged("o1"), 0)
+
+    def test_late_reserve_after_release_is_rejected(self):
+        inv = Inventory({"sku": 5})
+        inv.release("o1")
+        with self.assertRaises(BusinessError):
+            inv.reserve("o1", "sku", 1)
+        self.assertEqual((inv.stock["sku"], inv.reservations), (5, {}))
+
+    def test_late_shipment_after_cancel_is_rejected(self):
+        ship = Shipping()
+        ship.cancel("o1")
+        with self.assertRaises(BusinessError):
+            ship.create("o1")
+        self.assertEqual(ship.shipments, set())
 
 
 if __name__ == "__main__":

@@ -62,6 +62,12 @@ consistent final state.
 - Some actions cannot be undone (an email sent, goods handed to a courier).
   Put them last, after the "pivot" step, or make their compensation a new
   action (a cancellation email).
+- **A compensation can overtake its action.** A request that timed out may
+  still be in flight and reach the participant after the refund or release.
+  So every compensation leaves a tombstone for the saga id, and the action
+  refuses to run for a cancelled saga (tests: late charge, reserve and
+  shipment after compensation are rejected). Tombstones must be kept at
+  least as long as a request can be delayed.
 - Compensations must eventually succeed. Retry with back-off forever and
   alert a human after a while; never drop them.
 - **Orchestration vs choreography**: here one orchestrator drives the flow,

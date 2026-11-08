@@ -38,8 +38,12 @@ class Inventory:
     def __init__(self, stock: dict[str, int]):
         self.stock = dict(stock)
         self.reservations: dict[str, tuple[str, int]] = {}
+        self.cancelled: set[str] = set()
 
     def reserve(self, saga_id: str, sku: str, qty: int) -> None:
+        if saga_id in self.cancelled:
+            # A delayed request that arrives after its compensation.
+            raise BusinessError("saga already cancelled")
         if saga_id in self.reservations:
             return                                   # retry of a done call
         if self.stock.get(sku, 0) < qty:
@@ -48,6 +52,8 @@ class Inventory:
         self.reservations[saga_id] = (sku, qty)
 
     def release(self, saga_id: str) -> None:
+        # Tombstone first: the reserve may still be in flight and land later.
+        self.cancelled.add(saga_id)
         held = self.reservations.pop(saga_id, None)
         if held:
             self.stock[held[0]] += held[1]
@@ -58,8 +64,11 @@ class Payments:
         self.declines = declines
         self.charges: dict[str, int] = {}
         self.refunds: set[str] = set()
+        self.cancelled: set[str] = set()
 
     def charge(self, saga_id: str, amount: int) -> None:
+        if saga_id in self.cancelled:
+            raise BusinessError("saga already cancelled")
         if saga_id in self.charges:
             return
         if saga_id in self.declines:
@@ -67,6 +76,7 @@ class Payments:
         self.charges[saga_id] = amount
 
     def refund(self, saga_id: str) -> None:
+        self.cancelled.add(saga_id)            # remember even if nothing to undo yet
         if saga_id in self.charges:
             self.refunds.add(saga_id)
 
@@ -78,13 +88,17 @@ class Shipping:
     def __init__(self, unserviceable: set[str] = frozenset()):
         self.unserviceable = unserviceable
         self.shipments: set[str] = set()
+        self.cancelled: set[str] = set()
 
     def create(self, saga_id: str) -> None:
+        if saga_id in self.cancelled:
+            raise BusinessError("saga already cancelled")
         if saga_id in self.unserviceable:
             raise BusinessError("address not serviceable")
         self.shipments.add(saga_id)
 
     def cancel(self, saga_id: str) -> None:
+        self.cancelled.add(saga_id)
         self.shipments.discard(saga_id)
 
 
