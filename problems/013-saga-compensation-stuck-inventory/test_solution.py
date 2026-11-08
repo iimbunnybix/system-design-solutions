@@ -163,5 +163,32 @@ class LateActionAfterCompensation(unittest.TestCase):
         self.assertEqual(ship.shipments, set())
 
 
+class RecoverIsolatesFailingSagas(unittest.TestCase):
+    def test_one_stuck_compensation_does_not_block_other_sagas(self):
+        log = SagaLog()
+        inv, pay, ship = Inventory({"sku": 5}), Payments({"o1", "o2"}), Shipping()
+
+        def crash_on_compensate(saga, phase, step):
+            if phase == "compensate":
+                raise Crash()
+        for saga_id in ("o1", "o2"):
+            try:
+                SagaOrchestrator(log, crash_hook=crash_on_compensate).run(
+                    saga_id, order_steps(inv, pay, ship, "sku", 1, 100))
+            except Crash:
+                pass
+
+        def steps_for(saga_id):
+            steps = order_steps(inv, pay, ship, "sku", 1, 100)
+            if saga_id == "o1":                  # inventory keeps failing for o1 only
+                steps[0] = Step("reserve_stock", steps[0].action, always_times_out)
+            return steps
+        SagaOrchestrator(log).recover(steps_for)
+        self.assertEqual(log.records["o2"].status, "compensated")
+        self.assertEqual(log.records["o1"].status, "compensating")
+        self.assertEqual(inv.stock["sku"], 4)
+        self.assertIn("timeout", log.records["o1"].error)
+
+
 if __name__ == "__main__":
     unittest.main()

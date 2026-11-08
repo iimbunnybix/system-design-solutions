@@ -45,7 +45,10 @@ An orchestrated **saga** (`solution.py`):
    the saga id, so retries and recovery can safely repeat them.
 5. **Retries for transient errors**, bounded per call.
 6. **Recovery.** On start-up, `recover()` resumes every saga still
-   `running` or `compensating` from its log.
+   `running` or `compensating` from its log. Each saga is driven on its own:
+   if one saga's compensation still fails after its retries, that saga stays
+   `compensating` with the error recorded for the next pass, and the other
+   sagas are still recovered.
 
 Results from the tests: on the same 1,000 orders, every order ends either
 fully placed (stock reserved, charged, shipped) or fully undone, and stock

@@ -151,7 +151,20 @@ class SagaOrchestrator:
         return self._drive(rec, steps)
 
     def recover(self, steps_for: Callable[[str], list[Step]]) -> list[SagaRecord]:
-        return [self._drive(r, steps_for(r.saga_id)) for r in self.log.unfinished()]
+        """Drive every unfinished saga; one stuck saga must not block the rest.
+
+        A compensation that still fails after its retries leaves that saga in
+        ``compensating`` (with the error recorded) for the next recovery pass,
+        and recovery continues with the other sagas.
+        """
+        results = []
+        for rec in self.log.unfinished():
+            try:
+                results.append(self._drive(rec, steps_for(rec.saga_id)))
+            except TransientError as e:
+                rec.error = f"compensation pending: {e}"
+                results.append(rec)
+        return results
 
     def _drive(self, rec: SagaRecord, steps: list[Step]) -> SagaRecord:
         if rec.status == "running":
