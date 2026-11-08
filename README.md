@@ -53,6 +53,7 @@ Every problem folder has the same structure:
 | 036 | [Order events piled up for seconds at the lunch peak, though the log server's CPU and disk bandwidth were nearly idle](problems/036-per-write-fsync-group-commit) |
 | 037 | [The weekly-active-users dashboard showed 7x more users than had signed up, and it grew with every shard added](problems/037-summed-shard-distinct-counts-hyperloglog) |
 | 038 | [Large video uploads from phones kept restarting at 0% and most never finished, while users' mobile data ran out](problems/038-flaky-network-upload-restarts-from-zero) |
+| 039 | [Customers saw "payment received" on orders that had already shipped, and warehouse dashboards showed paid orders stuck for days](problems/039-round-robin-partitions-reorder-order-events) |
 <!-- INDEX:END -->
 
 ## Run the tests
