@@ -55,6 +55,7 @@ Every problem folder has the same structure:
 | 038 | [Large video uploads from phones kept restarting at 0% and most never finished, while users' mobile data ran out](problems/038-flaky-network-upload-restarts-from-zero) |
 | 039 | [Customers saw "payment received" on orders that had already shipped, and warehouse dashboards showed paid orders stuck for days](problems/039-round-robin-partitions-reorder-order-events) |
 | 040 | [Every night at 2 a.m. product pages slowed to a crawl and the database hit 100% CPU, right when the analytics export started](problems/040-nightly-scan-flushes-lru-cache) |
+| 041 | [After the metadata leader crashed, the cluster sat with no leader for minutes while every node kept starting elections and logs showed the term climbing](problems/041-identical-election-timeouts-split-votes) |
 <!-- INDEX:END -->
 
 ## Run the tests
