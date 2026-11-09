@@ -15,7 +15,13 @@ fixes keys nobody reads.
 ``simulate`` is a deterministic discrete-event model: replication delays,
 replica outages (writes to a down replica are lost for it), and a
 stream of reads and writes. A read is *stale* if it returns a version older
-than the newest write acknowledged before the read started.
+than the newest write acknowledged before the read started. A read *went
+back* if it returns a version older than one an earlier read of the same key
+already returned (the user saw the new value, then the old one again).
+``r + w > n`` prevents stale reads; preventing went-back reads also needs
+blocking read repair with ``r >= 2``: a write that is still in flight can be
+returned by one read and missed by the next unless the reader first copies it
+to enough replicas.
 """
 from __future__ import annotations
 
@@ -59,6 +65,7 @@ class Stats:
     writes: int = 0
     failed_writes: int = 0      # fewer than w replicas applied it
     repairs: int = 0
+    went_back_reads: int = 0    # older than a version an earlier read returned
 
     @property
     def stale_rate(self) -> float:
@@ -81,6 +88,8 @@ class Cluster:
         self._seq = 0
         self._version = 0
         self.acked: dict[str, list[tuple[int, Version]]] = {}   # key -> (ack_time, v)
+        # Highest version any read has returned per key, to detect flip-flops.
+        self.max_returned: dict[str, Version] = {}
         self.stats = Stats()
 
     @property
@@ -128,6 +137,11 @@ class Cluster:
         version, value = max(answers.values(), key=lambda a: a[0])
         if version < self.latest_acked(key, t):
             self.stats.stale_reads += 1
+        # A read can return an in-flight (not yet acknowledged) write; if a
+        # later read misses it, the user sees the value go back in time.
+        if version < self.max_returned.get(key, 0):
+            self.stats.went_back_reads += 1
+        self.max_returned[key] = max(self.max_returned.get(key, 0), version)
         if self.read_repair and version:
             for i, (v, _) in answers.items():
                 if v < version:

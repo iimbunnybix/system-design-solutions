@@ -38,9 +38,20 @@ R=1` reduce the rate but do not remove it.
    seeds: **0 stale reads**, and with one replica down neither reads nor
    writes fail. The same holds for `N=5, W=3, R=3` with two replicas down at
    overlapping times.
-2. **Read repair.** When the answers disagree, the coordinator writes the
-   newest version back to the stale replicas it contacted, so a rejoined
-   replica heals as its keys are read.
+2. **Blocking read repair.** When the answers disagree, the coordinator
+   writes the newest version back to the stale replicas it contacted before
+   answering, so a rejoined replica heals as its keys are read. This is also
+   what stops the flip-flop: `R + W > N` only guarantees the latest
+   *acknowledged* write. A read can return a write that is still in flight
+   (on one replica, not yet acknowledged), and the next read can miss it and
+   show the old value again. Copying the returned value to the `R` replicas
+   read means any later read set of `R` overlaps it. The `went_back_reads`
+   metric counts reads older than a value an earlier read of the same key
+   returned: in the outage scenario it is **97** for `W=3, R=1` and **15**
+   for `W=2, R=2` without read repair (both with 0 stale reads), and **0**
+   for `W=2, R=2` with read repair across 5 seeds. Monotonic reads therefore
+   need `R + W > N` *and* blocking read repair with `R >= 2` (Cassandra at
+   `QUORUM` does this).
 3. **Anti-entropy.** `anti_entropy` syncs all up replicas in the background
    for keys nobody reads (real systems compare Merkle trees to avoid scanning
    every key).
@@ -55,7 +66,9 @@ R=1` reduce the rate but do not remove it.
   operations (348 reads unavailable and 158 writes failed in the test) where
   `W=1, R=1` would have served stale data. `W=3, R=1` or `W=1, R=3` are also
   strict quorums but fail as soon as *one* replica is down (1,972 failed
-  writes / 4,529 unavailable reads in the outage scenario).
+  writes / 4,529 unavailable reads in the outage scenario). `W=3, R=1` also
+  does not fix the reported symptom: with one replica per read there is
+  nothing to repair, so values still go back in time (97 went-back reads).
 - `R + W > N` gives "read your latest acknowledged write", not
   linearizability: concurrent writes are resolved last-writer-wins by
   version, and a failed write can still be partly applied and seen later.

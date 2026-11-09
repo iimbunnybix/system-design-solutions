@@ -27,11 +27,36 @@ class ReproduceStaleReads(unittest.TestCase):
             self.assertGreater(simulate(3, w, r, OUTAGE).stale_reads, 0, (w, r))
 
 
+class ReproduceReadsGoingBackInTime(unittest.TestCase):
+    """R + W > N bounds staleness against acknowledged writes, but a read can
+    still return an in-flight write that the next read misses."""
+
+    def test_value_seen_then_unseen_counts_as_went_back(self):
+        c = Cluster(3, 1, 1, Outages(), seed=0, read_repair=False)
+        c.replicas[2].apply("k", 1, "new")      # in flight: only replica 2 has it
+        answers = [c.read("k", t) for t in range(20)]
+        first_new = answers.index("new")
+        self.assertIn(None, answers[first_new:])
+        self.assertGreater(c.stats.went_back_reads, 0)
+        self.assertEqual(c.stats.stale_reads, 0)   # nothing was acknowledged
+
+    def test_w3_r1_is_strict_quorum_but_reads_go_back(self):
+        s = simulate(3, 3, 1, OUTAGE)
+        self.assertEqual(s.stale_reads, 0)
+        self.assertEqual(s.went_back_reads, 97)
+
+    def test_w2_r2_without_read_repair_reads_go_back(self):
+        s = simulate(3, 2, 2, OUTAGE, read_repair=False)
+        self.assertEqual(s.stale_reads, 0)
+        self.assertEqual(s.went_back_reads, 15)
+
+
 class Quorum(unittest.TestCase):
     def test_r_plus_w_greater_than_n_never_stale(self):
         for seed in range(5):
             s = simulate(3, 2, 2, OUTAGE, seed=seed)
             self.assertEqual(s.stale_reads, 0, seed)
+            self.assertEqual(s.went_back_reads, 0, seed)       # read repair blocks
             self.assertEqual(s.unavailable_reads, 0)            # one replica down is fine
             self.assertEqual(s.failed_writes, 0)
 
@@ -39,6 +64,7 @@ class Quorum(unittest.TestCase):
         out = Outages({1: [(0, 5_000)], 4: [(2_000, 7_000)]})
         s = simulate(5, 3, 3, out, ops=10_000)
         self.assertEqual(s.stale_reads, 0)
+        self.assertEqual(s.went_back_reads, 0)
         self.assertEqual(s.unavailable_reads, 0)
 
     def test_two_of_three_down_is_unavailable_not_stale(self):
@@ -55,6 +81,11 @@ class Quorum(unittest.TestCase):
         self.assertFalse(Cluster(3, 1, 2, Outages()).strict_quorum)
         with self.assertRaises(ValueError):
             Cluster(3, 4, 1, Outages())
+
+
+    def test_w1_r3_with_read_repair_never_goes_back(self):
+        s = simulate(3, 1, 3, OUTAGE)
+        self.assertEqual((s.stale_reads, s.went_back_reads), (0, 0))
 
 
 class Repair(unittest.TestCase):
