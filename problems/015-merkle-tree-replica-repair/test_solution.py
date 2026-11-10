@@ -94,6 +94,23 @@ class FixWithMerkleTree(unittest.TestCase):
         merkle_repair(left, right)
         self.assertEqual(left.data["user:3"], right.data["user:3"])
 
+    def test_values_containing_separator_bytes_cannot_hide_a_missing_key(self):
+        # user:0 and user:1783 share a bucket. Replica B is missing user:1783,
+        # and its user:0 value contains the bytes A's bucket would serialize to.
+        left, right = Replica("a"), Replica("b")
+        left.put("user:0", 1, "x")
+        left.put("user:1783", 1, "y")
+        right.put("user:0", 1, "x\x01user:1783\x001\x00y")
+        self.assertNotEqual(MerkleTree(left).root, MerkleTree(right).root)
+
+    def test_missing_key_hidden_by_separator_bytes_is_repaired(self):
+        left, right = Replica("a"), Replica("b")
+        left.put("user:0", 1, "x")
+        left.put("user:1783", 1, "y")
+        right.put("user:0", 1, "x\x01user:1783\x001\x00y")
+        merkle_repair(left, right)
+        self.assertIn("user:1783", right.data)
+
     def test_leaf_count_must_be_power_of_two(self):
         with self.assertRaises(ValueError):
             MerkleTree(Replica("a"), leaf_count=1000)

@@ -24,6 +24,10 @@ DEFAULT_LEAF_COUNT = 1024
 # Hash of an empty bucket, so empty buckets compare equal on both replicas.
 EMPTY_BUCKET_HASH = hashlib.sha256(b"").digest()
 
+# Field widths of the record encoding used for bucket hashes.
+LENGTH_PREFIX_BYTES = 4
+VERSION_BYTES = 8
+
 
 @dataclass(frozen=True)
 class Record:
@@ -64,15 +68,30 @@ def bucket_of(key: str, leaf_count: int) -> int:
     return int.from_bytes(digest[:8], "big") % leaf_count
 
 
+def length_prefixed(text: str) -> bytes:
+    """Encode a string as its byte length followed by its bytes."""
+    encoded = text.encode()
+    return len(encoded).to_bytes(LENGTH_PREFIX_BYTES, "big") + encoded
+
+
+def encode_record(key: str, record: Record) -> bytes:
+    """Serialize one record so that no two different records share bytes.
+
+    Separator characters are not enough: keys and values are arbitrary
+    strings and may contain the separator themselves. A length prefix on every
+    field makes the encoding unambiguous whatever the field contains.
+    """
+    version_bytes = record.version.to_bytes(VERSION_BYTES, "big", signed=True)
+    return length_prefixed(key) + version_bytes + length_prefixed(record.value)
+
+
 def hash_bucket(replica: Replica, keys: list[str]) -> bytes:
     """Hash every key, version and value in a bucket into one digest."""
     if not keys:
         return EMPTY_BUCKET_HASH
     hasher = hashlib.sha256()
     for key in keys:
-        record = replica.data[key]
-        # Separators stop "ab"+"c" and "a"+"bc" from producing the same bytes.
-        hasher.update(f"{key}\x00{record.version}\x00{record.value}\x01".encode())
+        hasher.update(encode_record(key, replica.data[key]))
     return hasher.digest()
 
 

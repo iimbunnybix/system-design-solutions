@@ -24,6 +24,8 @@ switched off.
 1. Hash every key to one of 1,024 buckets with a stable hash (SHA-256, not
    Python's per-process randomised `hash()`).
 2. Hash each bucket's sorted `(key, version, value)` entries into a leaf.
+   Every field is length-prefixed, so a value that happens to contain
+   separator bytes can never make two different buckets hash the same.
 3. Build a binary tree: each parent is the hash of its two children.
 4. The replicas compare roots. Equal roots → done, one hash exchanged.
    Otherwise they descend only into children whose hashes differ.
