@@ -86,13 +86,32 @@ class FixWithMerkleTree(unittest.TestCase):
         stats = merkle_repair(Replica("a"), Replica("b"))
         self.assertEqual(stats.keys_exchanged, 0)
 
-    def test_same_version_with_different_value_is_detected_and_repaired(self):
+    def test_same_version_with_different_value_is_detected(self):
         left, right = make_identical_replicas(1_000)
         # Same version but different value: the hashes still differ.
         right.data["user:3"] = Record(1, "corrupted")
         self.assertNotEqual(MerkleTree(left).root, MerkleTree(right).root)
+
+    def test_same_version_conflict_is_reported_not_guessed(self):
+        left, right = make_identical_replicas(1_000)
+        right.data["user:3"] = Record(1, "corrupted")
+        stats = merkle_repair(left, right)
+        self.assertEqual(stats.conflicts, ["user:3"])
+        self.assertEqual(stats.keys_repaired, 0)
+
+    def test_corrupt_copy_that_sorts_higher_does_not_overwrite_healthy_copy(self):
+        left, right = make_identical_replicas(1_000)
+        right.data["user:3"] = Record(1, "zzz-corrupted")
         merkle_repair(left, right)
-        self.assertEqual(left.data["user:3"], right.data["user:3"])
+        self.assertEqual(left.data["user:3"], Record(1, "profile-3"))
+        self.assertEqual(right.data["user:3"], Record(1, "zzz-corrupted"))
+
+    def test_naive_repair_also_reports_same_version_conflicts(self):
+        left, right = make_identical_replicas(1_000)
+        left.data["user:7"] = Record(1, "zzz-corrupted")
+        stats = naive_full_compare_repair(left, right)
+        self.assertEqual(stats.conflicts, ["user:7"])
+        self.assertEqual(right.data["user:7"], Record(1, "profile-7"))
 
     def test_values_containing_separator_bytes_cannot_hide_a_missing_key(self):
         # user:0 and user:1783 share a bucket. Replica B is missing user:1783,

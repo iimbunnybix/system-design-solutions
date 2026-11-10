@@ -30,8 +30,10 @@ switched off.
 4. The replicas compare roots. Equal roots → done, one hash exchanged.
    Otherwise they descend only into children whose hashes differ.
 5. For each differing leaf bucket, only that bucket's keys are exchanged and
-   reconciled: the higher version wins (ties are broken on the value so both
-   sides still converge).
+   reconciled: the higher version wins. The same version with different
+   values means corruption; two replicas cannot tell which copy is healthy,
+   so the key is left alone and reported in `SyncStats.conflicts` for a third
+   replica, a checksum or an operator to settle.
 
 Results from the tests (100,000 keys, 1,024 buckets, 22 differing keys):
 

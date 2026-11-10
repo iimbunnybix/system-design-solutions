@@ -44,6 +44,9 @@ class SyncStats:
     hashes_compared: int = 0
     keys_exchanged: int = 0
     keys_repaired: int = 0
+    # Keys with the same version but different values on the two replicas.
+    # They are left untouched for an operator or a third replica to settle.
+    conflicts: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -159,17 +162,24 @@ def differing_buckets(left: MerkleTree, right: MerkleTree, stats: SyncStats) -> 
     return []
 
 
+def is_same_version_conflict(left_record: Record | None, right_record: Record | None) -> bool:
+    """True when both replicas hold the same version with different values.
+
+    That can only mean corruption or a buggy writer. Two replicas cannot tell
+    which copy is the healthy one, so repair must not pick either of them.
+    """
+    if left_record is None or right_record is None:
+        return False
+    return left_record.version == right_record.version and left_record.value != right_record.value
+
+
 def choose_winner(left_record: Record | None, right_record: Record | None) -> Record:
     """Pick the record both replicas should keep: the higher version wins."""
     if left_record is None:
         return right_record
     if right_record is None:
         return left_record
-    # Same version but different values means corruption or a buggy writer;
-    # break the tie on the value so both replicas still end up identical.
-    left_rank = (left_record.version, left_record.value)
-    right_rank = (right_record.version, right_record.value)
-    return left_record if left_rank >= right_rank else right_record
+    return left_record if left_record.version > right_record.version else right_record
 
 
 def reconcile_keys(left: Replica, right: Replica, keys: set[str], stats: SyncStats) -> None:
@@ -179,6 +189,11 @@ def reconcile_keys(left: Replica, right: Replica, keys: set[str], stats: SyncSta
         left_record = left.data.get(key)
         right_record = right.data.get(key)
         if left_record == right_record:
+            continue
+        if is_same_version_conflict(left_record, right_record):
+            # Breaking the tie on value order would overwrite the healthy
+            # copy about half the time; report it instead of guessing.
+            stats.conflicts.append(key)
             continue
         stats.keys_repaired += 1
         winner = choose_winner(left_record, right_record)
