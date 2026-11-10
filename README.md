@@ -57,6 +57,7 @@ Every problem folder has the same structure:
 | 040 | [Every night at 2 a.m. product pages slowed to a crawl and the database hit 100% CPU, right when the analytics export started](problems/040-nightly-scan-flushes-lru-cache) |
 | 041 | [After the metadata leader crashed, the cluster sat with no leader for minutes while every node kept starting elections and logs showed the term climbing](problems/041-identical-election-timeouts-split-votes) |
 | 042 | [The hourly ledger audit kept reporting thousands of dollars created or lost, but every account balanced when checked by hand](problems/042-cross-shard-audit-total-drifts-snapshot-reads) |
+| 043 | [After a rack switch failed, customers on one rack kept seeing their old balance for 20 minutes even though every write was committed](problems/043-partitioned-leader-serves-stale-reads) |
 <!-- INDEX:END -->
 
 ## Run the tests
