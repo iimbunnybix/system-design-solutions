@@ -48,6 +48,11 @@ Simulation results (capacity 100, 200 ticks, fixed seed):
   towards the lower classes' ceilings. A reserve sized larger than real
   critical demand wastes capacity; one sized smaller lets checkout fail again.
   Size it from measured peak critical traffic.
+- Ceilings are whole percentages and slot limits use integer maths
+  (`capacity * percent // 100`), so 70% of 90 is 63 slots, not the 62 that
+  `int(90 * 0.7)` gives. On tiny gateways every class still gets at least one
+  slot (70% of 1 slot would round to 0 and shed browsing on an idle box), so a
+  single-slot gateway has no reserve left for critical traffic.
 - Priorities must be set by the gateway (by route), not trusted from client
   headers, or every client will mark itself critical.
 - Static ceilings do not adapt. Production systems (for example Google's

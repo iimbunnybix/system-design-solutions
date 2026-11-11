@@ -74,6 +74,14 @@ class FixWithPriorityAdmission(unittest.TestCase):
         gateway.release()
         self.assertTrue(gateway.try_admit(Priority.CRITICAL))
 
+    def test_idle_single_slot_gateway_admits_default_and_background(self):
+        self.assertTrue(PriorityGateway(1).try_admit(Priority.DEFAULT))
+        self.assertTrue(PriorityGateway(1).try_admit(Priority.BACKGROUND))
+
+    def test_slot_limit_has_no_float_rounding_error(self):
+        # 90 * 0.7 is 62.999... in floating point; 70% of 90 is exactly 63.
+        self.assertEqual(PriorityGateway(90).slot_limit(Priority.DEFAULT), 63)
+
     def test_release_without_admit_is_an_error(self):
         with self.assertRaises(RuntimeError):
             PriorityGateway(CAPACITY).release()

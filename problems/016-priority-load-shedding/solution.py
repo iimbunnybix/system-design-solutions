@@ -24,14 +24,19 @@ class Priority(IntEnum):
     BACKGROUND = 2   # analytics pings, prefetch, telemetry
 
 
-# Share of total capacity each priority may fill. Above 0.60 utilisation no
-# new background request is admitted; above 0.70 no default request is
-# admitted. The last 30% is therefore reserved for critical traffic.
-UTILISATION_CEILING = {
-    Priority.CRITICAL: 1.00,
-    Priority.DEFAULT: 0.70,
-    Priority.BACKGROUND: 0.60,
+# Share of total capacity each priority may fill, in whole percent. Above 60%
+# utilisation no new background request is admitted; above 70% no default
+# request is admitted. The last 30% is therefore reserved for critical traffic.
+# Integers (not 0.7) keep the slot maths exact: 90 * 0.7 is 62.999... in floats.
+UTILISATION_CEILING_PERCENT = {
+    Priority.CRITICAL: 100,
+    Priority.DEFAULT: 70,
+    Priority.BACKGROUND: 60,
 }
+PERCENT = 100
+# Every class with a non-zero ceiling may use at least one slot, so a tiny
+# gateway (capacity 1-3) does not reject browsing on an idle box.
+MIN_SLOTS_PER_CLASS = 1
 
 
 class NaiveGateway:
@@ -56,17 +61,24 @@ class NaiveGateway:
 class PriorityGateway:
     """Admit a request only if utilisation is below its priority's ceiling."""
 
-    def __init__(self, capacity: int, ceilings: dict[Priority, float] | None = None):
+    def __init__(self, capacity: int, ceilings_percent: dict[Priority, int] | None = None):
         if capacity <= 0:
             raise ValueError("capacity must be positive")
         self.capacity = capacity
-        self.ceilings = dict(ceilings or UTILISATION_CEILING)
+        self.ceilings_percent = dict(ceilings_percent or UTILISATION_CEILING_PERCENT)
         self.in_flight = 0
 
     def slot_limit(self, priority: Priority) -> int:
         """How many in-flight requests may exist when this priority is admitted."""
-        # int() rounds down so a ceiling never lets a class exceed its share.
-        return int(self.capacity * self.ceilings[priority])
+        percent = self.ceilings_percent[priority]
+        if percent <= 0:
+            return 0
+        # Integer floor division rounds down exactly, so a class never exceeds
+        # its share on larger gateways...
+        share = self.capacity * percent // PERCENT
+        # ...but on a tiny gateway the floor can be 0, which would shed the
+        # class even while the gateway is idle.
+        return max(MIN_SLOTS_PER_CLASS, share)
 
     def try_admit(self, priority: Priority) -> bool:
         """Admit if there is room below this priority's ceiling."""
