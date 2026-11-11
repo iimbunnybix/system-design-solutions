@@ -59,6 +59,7 @@ Every problem folder has the same structure:
 | 042 | [The hourly ledger audit kept reporting thousands of dollars created or lost, but every account balanced when checked by hand](problems/042-cross-shard-audit-total-drifts-snapshot-reads) |
 | 043 | [After a rack switch failed, customers on one rack kept seeing their old balance for 20 minutes even though every write was committed](problems/043-partitioned-leader-serves-stale-reads) |
 | 044 | [After the rebalancer moved a busy shard to a new server, users found profile edits from the last few minutes undone and some new accounts gone](problems/044-shard-move-loses-writes-during-copy) |
+| 045 | [After the cart cache restarted, shoppers' recently added items vanished even though every "add to cart" had returned success](problems/045-write-behind-cache-loses-acknowledged-writes) |
 <!-- INDEX:END -->
 
 ## Run the tests
