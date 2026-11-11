@@ -60,6 +60,7 @@ Every problem folder has the same structure:
 | 043 | [After a rack switch failed, customers on one rack kept seeing their old balance for 20 minutes even though every write was committed](problems/043-partitioned-leader-serves-stale-reads) |
 | 044 | [After the rebalancer moved a busy shard to a new server, users found profile edits from the last few minutes undone and some new accounts gone](problems/044-shard-move-loses-writes-during-copy) |
 | 045 | [After the cart cache restarted, shoppers' recently added items vanished even though every "add to cart" had returned success](problems/045-write-behind-cache-loses-acknowledged-writes) |
+| 046 | [Minutes after a new API node joined, it fell over under every client's traffic while the old nodes sat idle](problems/046-least-loaded-balancer-herds-onto-new-node) |
 <!-- INDEX:END -->
 
 ## Run the tests
