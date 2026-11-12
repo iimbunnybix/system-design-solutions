@@ -61,6 +61,7 @@ Every problem folder has the same structure:
 | 044 | [After the rebalancer moved a busy shard to a new server, users found profile edits from the last few minutes undone and some new accounts gone](problems/044-shard-move-loses-writes-during-copy) |
 | 045 | [After the cart cache restarted, shoppers' recently added items vanished even though every "add to cart" had returned success](problems/045-write-behind-cache-loses-acknowledged-writes) |
 | 046 | [Minutes after a new API node joined, it fell over under every client's traffic while the old nodes sat idle](problems/046-least-loaded-balancer-herds-onto-new-node) |
+| 047 | [The team tripled the consumers during a 3.6-million-message backlog, and the backlog drained no faster](problems/047-consumers-beyond-partition-count-sit-idle) |
 <!-- INDEX:END -->
 
 ## Run the tests
