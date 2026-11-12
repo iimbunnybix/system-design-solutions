@@ -62,6 +62,7 @@ Every problem folder has the same structure:
 | 045 | [After the cart cache restarted, shoppers' recently added items vanished even though every "add to cart" had returned success](problems/045-write-behind-cache-loses-acknowledged-writes) |
 | 046 | [Minutes after a new API node joined, it fell over under every client's traffic while the old nodes sat idle](problems/046-least-loaded-balancer-herds-onto-new-node) |
 | 047 | [The team tripled the consumers during a 3.6-million-message backlog, and the backlog drained no faster](problems/047-consumers-beyond-partition-count-sit-idle) |
+| 048 | [After a big enterprise customer went live, one web server ran at six times its share and timed out while the other seven idled](problems/048-nat-source-ip-affinity-overloads-one-backend) |
 <!-- INDEX:END -->
 
 ## Run the tests
