@@ -17,6 +17,7 @@ from typing import Iterator
 
 TIMESTAMP_DIGITS = 13       # epoch milliseconds fit in 13 digits until year 2286
 BUCKET_DIGITS = 2           # enough for up to 100 buckets
+MAX_BUCKET_COUNT = 10 ** BUCKET_DIGITS
 KEY_SEPARATOR = "|"
 
 
@@ -69,8 +70,19 @@ def naive_row_key(event: Event) -> str:
     return f"{event.timestamp_ms:0{TIMESTAMP_DIGITS}d}{KEY_SEPARATOR}{event.event_id}"
 
 
+def check_bucket_count(bucket_count: int) -> None:
+    """Reject bucket counts whose prefixes would not fit in BUCKET_DIGITS.
+
+    A 3-digit prefix such as "100|" sorts between "10|" and "11|" as a string,
+    so buckets of 100 or more would land in the wrong shard ranges.
+    """
+    if not 1 <= bucket_count <= MAX_BUCKET_COUNT:
+        raise ValueError(f"bucket_count must be between 1 and {MAX_BUCKET_COUNT}")
+
+
 def bucket_for(event_id: str, bucket_count: int) -> int:
     """Stable bucket for an id. hashlib, not hash(): Python randomises str hashes per process."""
+    check_bucket_count(bucket_count)
     digest = hashlib.sha256(event_id.encode("utf-8")).digest()
     return int.from_bytes(digest[:8], "big") % bucket_count
 
@@ -88,6 +100,7 @@ def salted_row_key(event: Event, bucket_count: int) -> str:
 
 def bucket_split_points(bucket_count: int, shard_count: int) -> list[str]:
     """Shard boundaries on bucket prefixes so each shard owns an equal run of buckets."""
+    check_bucket_count(bucket_count)
     if bucket_count % shard_count != 0:
         raise ValueError("bucket_count must be a multiple of shard_count")
     buckets_per_shard = bucket_count // shard_count

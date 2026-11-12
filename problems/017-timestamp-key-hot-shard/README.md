@@ -42,7 +42,9 @@ Put a **stable hash bucket of the event id in front of the timestamp**:
   parallel and keep the bucket count as small as gives an even spread (a
   common rule is a small multiple of the shard count).
 - **Bucket count is baked into the keys.** Changing it means rewriting data or
-  reading both layouts during a migration; choose it with growth headroom.
+  reading both layouts during a migration; choose it with growth headroom. The two-digit prefix allows at most 100 buckets;
+  larger counts are rejected because a prefix like `100|` would sort between
+  `10|` and `11|` and land on the wrong shard.
 - Point lookups need the event id *and* timestamp to build the key; a lookup
   by id alone needs a secondary index.
 - It spreads load from *many* writers. A single very hot entity (one id) still

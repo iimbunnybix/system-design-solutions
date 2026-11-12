@@ -1,6 +1,6 @@
 import unittest
 
-from solution import (Event, RangeShardedStore, bucket_split_points, hottest_shard_share,
+from solution import (MAX_BUCKET_COUNT, Event, RangeShardedStore, bucket_split_points, hottest_shard_share,
                       naive_row_key, naive_time_range, salted_row_key, salted_time_range)
 
 SHARD_COUNT = 8
@@ -105,6 +105,18 @@ class FixWithBucketPrefix(unittest.TestCase):
     def test_bucket_count_must_divide_evenly_into_shards(self):
         with self.assertRaises(ValueError):
             bucket_split_points(10, SHARD_COUNT)
+
+    def test_bucket_count_too_large_for_the_prefix_is_rejected(self):
+        with self.assertRaises(ValueError):
+            bucket_split_points(128, SHARD_COUNT)
+        with self.assertRaises(ValueError):
+            salted_row_key(Event("evt-1", TODAY_START_MS, "x"), 128)
+
+    def test_largest_allowed_bucket_count_still_spreads_evenly(self):
+        store = RangeShardedStore(bucket_split_points(MAX_BUCKET_COUNT, 4))
+        for event in todays_events():
+            store.put(salted_row_key(event, MAX_BUCKET_COUNT), event)
+        self.assertLess(hottest_shard_share(store), 0.30)
 
 
 if __name__ == "__main__":
