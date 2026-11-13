@@ -63,6 +63,7 @@ Every problem folder has the same structure:
 | 046 | [Minutes after a new API node joined, it fell over under every client's traffic while the old nodes sat idle](problems/046-least-loaded-balancer-herds-onto-new-node) |
 | 047 | [The team tripled the consumers during a 3.6-million-message backlog, and the backlog drained no faster](problems/047-consumers-beyond-partition-count-sit-idle) |
 | 048 | [After a big enterprise customer went live, one web server ran at six times its share and timed out while the other seven idled](problems/048-nat-source-ip-affinity-overloads-one-backend) |
+| 049 | [Product-API pods were OOM-killed every few hours although the cache "held at most 10,000 entries"](problems/049-entry-count-cache-limit-oom-on-large-values) |
 <!-- INDEX:END -->
 
 ## Run the tests
