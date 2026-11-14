@@ -14,6 +14,7 @@ import os
 import struct
 import zlib
 from dataclasses import dataclass
+from typing import Any, Callable
 
 LENGTH_HEADER = struct.Struct(">I")            # original format: big-endian payload length
 FRAME_HEADER = struct.Struct(">II")            # framed format: payload length, CRC32
@@ -101,8 +102,10 @@ def recover(data: bytes) -> RecoveryResult:
 class AppendOnlyLog:
     """A file-backed log that repairs a torn tail when it is opened."""
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, open_file: Callable[[str, str], Any] = open) -> None:
+        # open_file is injectable so tests can simulate a write that fails half-way.
         self.path = path
+        self.open_file = open_file
         self.recovered = self._recover_file()
 
     def _recover_file(self) -> RecoveryResult:
@@ -118,9 +121,28 @@ class AppendOnlyLog:
         return result
 
     def append(self, payload: bytes) -> None:
-        """Append one record and fsync, so it is durable before we acknowledge it."""
-        with open(self.path, "ab") as log_file:
-            log_file.write(encode_frame(payload))
+        """Append one record and fsync, so it is durable before we acknowledge it.
+
+        If the write or fsync fails (ENOSPC, EIO) part of the frame may already be
+        in the file. We cut the file back to its size before this append, otherwise
+        the next successful append lands after the garbage and recovery, which stops
+        at the first bad frame, would lose that acknowledged record.
+        """
+        frame = encode_frame(payload)
+        size_before = os.path.getsize(self.path)
+        try:
+            with self.open_file(self.path, "ab") as log_file:
+                log_file.write(frame)
+                log_file.flush()
+                os.fsync(log_file.fileno())
+        except OSError:
+            self._truncate_to(size_before)
+            raise
+
+    def _truncate_to(self, size: int) -> None:
+        """Remove a partially written frame and make the shorter size durable."""
+        with open(self.path, "r+b") as log_file:
+            log_file.truncate(size)
             log_file.flush()
             os.fsync(log_file.fileno())
 

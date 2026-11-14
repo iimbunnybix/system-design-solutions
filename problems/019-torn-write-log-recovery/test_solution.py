@@ -74,6 +74,45 @@ class FixWithChecksummedFrames(unittest.TestCase):
             encode_frame(bytes(MAX_RECORD_BYTES + 1))
 
 
+class HalfWriteFile:
+    """A log file whose write puts half the bytes on disk and then fails, like ENOSPC."""
+
+    def __init__(self, path: str) -> None:
+        self.real_file = open(path, "ab")
+
+    def write(self, data: bytes) -> int:
+        self.real_file.write(data[:len(data) // 2])
+        self.real_file.flush()
+        raise OSError("No space left on device")
+
+    def flush(self) -> None:
+        self.real_file.flush()
+
+    def fileno(self) -> int:
+        return self.real_file.fileno()
+
+    def __enter__(self) -> "HalfWriteFile":
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.real_file.close()
+
+
+class FailingOnceOpener:
+    """Opens the log normally, except the append number `failing_append`, which fails half-way."""
+
+    def __init__(self, failing_append: int) -> None:
+        self.failing_append = failing_append
+        self.appends_seen = 0
+
+    def __call__(self, path: str, mode: str):
+        if mode == "ab":
+            self.appends_seen += 1
+            if self.appends_seen == self.failing_append:
+                return HalfWriteFile(path)
+        return open(path, mode)
+
+
 class FixOnDisk(unittest.TestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
@@ -97,6 +136,22 @@ class FixOnDisk(unittest.TestCase):
         log = AppendOnlyLog(self.path)
         log.append(b"acct:7 balance=300")
         self.assertEqual(AppendOnlyLog(self.path).records(), COMMITTED + [b"acct:7 balance=300"])
+
+    def test_failed_append_does_not_hide_later_acknowledged_writes(self):
+        log = AppendOnlyLog(self.path, open_file=FailingOnceOpener(failing_append=2))
+        log.append(b"acct:7 balance=100")
+        with self.assertRaises(OSError):
+            log.append(b"acct:7 balance=200")
+        log.append(b"acct:7 balance=250")
+        expected = [b"acct:7 balance=100", b"acct:7 balance=250"]
+        self.assertEqual(log.records(), expected)
+        self.assertEqual(AppendOnlyLog(self.path).records(), expected)
+
+    def test_failed_append_leaves_file_at_previous_size(self):
+        log = AppendOnlyLog(self.path, open_file=FailingOnceOpener(failing_append=1))
+        with self.assertRaises(OSError):
+            log.append(b"acct:7 balance=200")
+        self.assertEqual(os.path.getsize(self.path), 0)
 
     def test_new_log_file_starts_empty(self):
         self.assertEqual(AppendOnlyLog(self.path).records(), [])

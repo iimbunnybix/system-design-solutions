@@ -36,7 +36,10 @@ discarded.
 
 - **Why stop instead of skipping?** Appends are sequential and each is fsynced
   before it is acknowledged, so a torn frame can only be the last write, which
-  was never acknowledged. After a bad frame there is also no reliable way to
+  was never acknowledged. That only holds if a failed append cannot leave a
+  partial frame behind, so `append` truncates the file back to its previous
+  size when a write or fsync raises; otherwise the next acknowledged append
+  would land after the garbage and be lost on recovery. After a bad frame there is also no reliable way to
   find where the next frame would start.
 - **The CRC covers the length bytes too.** `crc32(b"")` is 0, so a checksum of
   the payload alone would accept a zero-filled tail (length 0, CRC 0) as an
