@@ -65,6 +65,7 @@ Every problem folder has the same structure:
 | 048 | [After a big enterprise customer went live, one web server ran at six times its share and timed out while the other seven idled](problems/048-nat-source-ip-affinity-overloads-one-backend) |
 | 049 | [Product-API pods were OOM-killed every few hours although the cache "held at most 10,000 entries"](problems/049-entry-count-cache-limit-oom-on-large-values) |
 | 050 | [Product pages returned 500s on and off for the 20 minutes a pricing release took to roll out](problems/050-rolling-deploy-cache-format-change-crashes-old-pods) |
+| 051 | [Clients kept getting connection errors from a cache node that had crashed, because it kept flipping back to "alive"](problems/051-stale-gossip-resurrects-dead-member) |
 <!-- INDEX:END -->
 
 ## Run the tests
