@@ -40,6 +40,10 @@ node is suspected when phi reaches `PHI_THRESHOLD = 8`.
 - The standard deviation is floored at 0.5 s so a perfectly regular node does
   not become hair-trigger, and with fewer than 3 samples the detector falls
   back to the old fixed timeout instead of guessing.
+- Gaps longer than `MAX_LEARNED_GAP_SECONDS = 10` are not learned (Cassandra
+  drops over-long intervals for the same reason). Otherwise one 60 s partition
+  would sit in the history for the next 100 heartbeats and a real crash right
+  after it would take 34.6 s to detect instead of 3.9 s.
 
 ## Trade-offs
 - Heartbeat gaps are not really normally distributed; GC pauses make a long

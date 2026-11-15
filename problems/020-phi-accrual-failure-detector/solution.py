@@ -19,6 +19,7 @@ HISTORY_SIZE = 100                  # inter-arrival samples remembered per node
 MIN_SAMPLES = 3                     # below this, history is too thin to trust
 MIN_STD_DEV_SECONDS = 0.5           # floor so a perfectly steady node isn't hair-trigger
 SMALLEST_PROBABILITY = 1e-300       # keeps log10 finite far in the tail
+MAX_LEARNED_GAP_SECONDS = 10.0      # longer gaps are outages, not the node's rhythm
 
 
 class FixedTimeoutDetector:
@@ -60,7 +61,11 @@ class PhiAccrualDetector:
     def heartbeat(self, now: float) -> None:
         """Record a heartbeat and the gap since the previous one."""
         if self.last_heartbeat is not None:
-            self.intervals.append(now - self.last_heartbeat)
+            gap = now - self.last_heartbeat
+            # A gap this long was an outage or partition. Learning it would inflate
+            # the mean for the next HISTORY_SIZE beats and slow down detection.
+            if gap <= MAX_LEARNED_GAP_SECONDS:
+                self.intervals.append(gap)
         self.last_heartbeat = now
 
     def _mean_and_std_dev(self) -> tuple[float, float]:

@@ -95,6 +95,13 @@ class FixWithPhiAccrual(unittest.TestCase):
             detector.heartbeat(beat)
         self.assertLess(detector.phi(detector.last_heartbeat + 10_000), 1000)
 
+    def test_long_outage_gap_does_not_slow_down_detection_of_the_next_crash(self):
+        beats = steady_node()
+        back_after_partition = beats[-1] + 60
+        beats += [back_after_partition + offset for offset in range(10)]
+        detection = seconds_until_suspected(PhiAccrualDetector(), beats)
+        self.assertAlmostEqual(detection, 3.9, places=6)
+
     def test_never_heard_from_node_is_not_suspected(self):
         self.assertFalse(PhiAccrualDetector().is_suspected(now=100.0))
 
