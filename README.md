@@ -68,6 +68,7 @@ Every problem folder has the same structure:
 | 051 | [Clients kept getting connection errors from a cache node that had crashed, because it kept flipping back to "alive"](problems/051-stale-gossip-resurrects-dead-member) |
 | 052 | [Customers saw money leave their account but never reach the recipient after a coordinator restart](problems/052-prepared-participant-timeout-abort-splits-transfer) |
 | 053 | [Checkout failed with "duplicate key" on new orders after the order service scaled out](problems/053-hashed-worker-ids-collide-duplicate-snowflake-ids) |
+| 054 | [After a price drop, customers saw the old price on some page loads and the new one on others for five minutes](problems/054-local-l1-cache-serves-stale-after-l2-update) |
 <!-- INDEX:END -->
 
 ## Run the tests
