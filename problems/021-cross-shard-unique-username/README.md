@@ -31,6 +31,10 @@ Crash handling:
 - Before reclaiming, the index asks the owner's user shard whether that user
   was in fact created (crash between create and confirm). If so the claim is
   confirmed instead of being handed to someone else.
+- A sign-up that is merely *slow* (insert stalled behind a lock or a
+  failover) can outlive the TTL and be reclaimed. When its insert finally
+  lands, `confirm` fails, and `register` deletes the row it just wrote, so
+  only the reclaiming user keeps the name.
 - The same user retrying keeps its claim, so client retries are safe.
 
 Names are normalized with `strip().casefold()` before hashing so "Alice" and

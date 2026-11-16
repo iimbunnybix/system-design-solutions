@@ -6,8 +6,9 @@ sign-ups for "alice" that land on different shards both succeed. This module
 keeps that original flow and adds a global username index that is itself
 partitioned by a hash of the *username*: every claim for one name goes to the
 same partition, which can therefore enforce uniqueness. Sign-up becomes
-reserve (index) -> create (user shard) -> confirm (index), and a failed create
-releases the reservation.
+reserve (index) -> create (user shard) -> confirm (index); a failed create
+releases the reservation, and a create whose claim was reclaimed meanwhile is
+deleted again.
 """
 from __future__ import annotations
 
@@ -45,6 +46,13 @@ class UserShard:
                 raise UsernameTaken(username)
             self.users[user_id] = username
             self.local_usernames.add(username)
+
+    def delete_user(self, user_id: int) -> None:
+        """Remove a user row (used to undo a sign-up that lost its claim)."""
+        with self._lock:
+            username = self.users.pop(user_id, None)
+            if username is not None:
+                self.local_usernames.discard(username)
 
     def has_user_with_name(self, user_id: int, username: str) -> bool:
         """True if this shard already stores ``user_id`` with ``username``."""
@@ -151,4 +159,11 @@ def register(index: UsernameIndex, shards: list[UserShard], user_id: int,
     except BaseException:
         partition.release(name, user_id)
         raise
-    partition.confirm(name, user_id)
+    try:
+        partition.confirm(name, user_id)
+    except UsernameTaken:
+        # A *slow* (not crashed) sign-up can outlive the TTL: another user
+        # reclaimed the name while our insert was stalled. We lost, so undo
+        # the row we just wrote instead of leaving a second "alice" behind.
+        shard_for_user(shards, user_id).delete_user(user_id)
+        raise

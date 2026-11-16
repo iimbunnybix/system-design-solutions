@@ -108,6 +108,44 @@ class FixCrashRecovery(unittest.TestCase):
         self.assertEqual(all_usernames(self.shards), ["alice"])
 
 
+class SlowInsertShard(UserShard):
+    """A shard whose insert stalls; ``during_stall`` runs while it is stuck."""
+
+    def __init__(self, shard_id: int) -> None:
+        super().__init__(shard_id)
+        self.during_stall = lambda: None
+
+    def insert_user(self, user_id: int, username: str) -> None:
+        self.during_stall()
+        super().insert_user(user_id, username)
+
+
+class FixSlowSignUpAfterReclaim(unittest.TestCase):
+    def setUp(self):
+        self.shards = make_shards()
+        self.shards[FIRST_USER % SHARD_COUNT] = SlowInsertShard(FIRST_USER % SHARD_COUNT)
+        self.index = UsernameIndex(PARTITION_COUNT)
+
+    def start_slow_sign_up_that_is_overtaken(self) -> None:
+        """User 1 stalls past the TTL; user 2 reclaims the name meanwhile."""
+        def second_user_reclaims() -> None:
+            register(self.index, self.shards, SECOND_USER, "alice",
+                     START_TIME + RESERVATION_TTL_SECONDS)
+        self.shards[FIRST_USER % SHARD_COUNT].during_stall = second_user_reclaims
+        with self.assertRaises(UsernameTaken):
+            register(self.index, self.shards, FIRST_USER, "alice", START_TIME)
+
+    def test_slow_sign_up_that_lost_its_claim_leaves_one_alice(self):
+        self.start_slow_sign_up_that_is_overtaken()
+        self.assertEqual(all_usernames(self.shards), ["alice"])
+
+    def test_the_reclaiming_user_keeps_the_name(self):
+        self.start_slow_sign_up_that_is_overtaken()
+        partition = self.index.partition_for("alice")
+        self.assertEqual(partition.claims["alice"].user_id, SECOND_USER)
+        self.assertEqual(partition.claims["alice"].state, CONFIRMED)
+
+
 class FixConcurrency(unittest.TestCase):
     def test_fifty_concurrent_sign_ups_for_one_name_yield_one_user(self):
         shards, index = make_shards(), UsernameIndex(PARTITION_COUNT)
