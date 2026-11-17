@@ -72,6 +72,7 @@ Every problem folder has the same structure:
 | 055 | [Every scale-out of the order consumers caused a lag spike, because one new pod reshuffled a third of all partitions](problems/055-consumer-join-reshuffles-every-partition-cold-caches) |
 | 056 | [The season leaderboard showed the wrong top 10, and every total on it was too low](problems/056-merged-shard-top-k-leaderboard-misses-true-leader) |
 | 057 | [During a cricket final, live-score updates reached every fan minutes late because one subscriber was on a bad connection](problems/057-slow-subscriber-stalls-fan-out-for-everyone) |
+| 058 | [One customer's corrupt upload took the PDF rendering service down for every customer within seconds](problems/058-poison-tenant-crashes-every-shared-worker) |
 <!-- INDEX:END -->
 
 ## Run the tests
