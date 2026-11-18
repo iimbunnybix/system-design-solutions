@@ -51,8 +51,14 @@ class Network:
         return False
 
 
+# A replica's version is (term of its last write, sequence number in that term).
+# Python compares tuples element by element, which is the "more up to date" order.
+Version = tuple[int, int]
+NO_WRITES: Version = (0, 0)
+
+
 class Node:
-    """One replica: its term, its vote in that term, its role and its data."""
+    """One replica: its term, its vote, its role, its data and its version."""
 
     def __init__(self, name: str) -> None:
         self.name = name
@@ -60,6 +66,7 @@ class Node:
         self.voted_for: str | None = None
         self.role = FOLLOWER
         self.data: dict[str, object] = {}
+        self.version: Version = NO_WRITES
 
     def observe_term(self, term: int) -> None:
         """Adopt a newer term; seeing one means someone else may lead now."""
@@ -68,11 +75,16 @@ class Node:
             self.voted_for = None
             self.role = FOLLOWER
 
-    def handle_vote_request(self, term: int, candidate: str) -> bool:
-        """Grant at most one vote per term, never to an older term."""
+    def handle_vote_request(self, term: int, candidate: str,
+                            candidate_version: Version = NO_WRITES) -> bool:
+        """Grant at most one vote per term, never to an older term or older data."""
         if term < self.current_term:
             return False
         self.observe_term(term)
+        # A candidate missing writes this voter holds might lack a committed
+        # write; electing it would silently lose that acknowledged write.
+        if candidate_version < self.version:
+            return False
         if self.voted_for is None or self.voted_for == candidate:
             self.voted_for = candidate
             return True
@@ -130,7 +142,8 @@ class QuorumCluster(NaiveCluster):
         for node in self.reachable_from(candidate_name):
             if node is candidate:
                 continue
-            if node.handle_vote_request(candidate.current_term, candidate_name):
+            if node.handle_vote_request(candidate.current_term, candidate_name,
+                                        candidate.version):
                 votes += 1
         if candidate.role == CANDIDATE and votes >= self.quorum():
             candidate.role = LEADER
@@ -148,10 +161,16 @@ class QuorumCluster(NaiveCluster):
             raise NotLeader(f"{leader_name} saw a newer term and stepped down")
         if len(accepting) < self.quorum():
             raise NotCommitted(f"{len(accepting)} of {len(self.nodes)} nodes reachable")
+        new_version = next_version(leader)
+        new_data = dict(leader.data)
+        new_data[key] = value
         # Simplification: real Raft appends to the log first and marks the
         # entry committed later; here we only apply once a quorum is known.
+        # Copying the leader's whole state lets nodes that missed earlier
+        # writes (e.g. during a partition) catch up instead of staying split.
         for node in accepting:
-            node.data[key] = value
+            node.data = dict(new_data)
+            node.version = new_version
 
     def followers_accepting(self, leader: Node) -> list[Node]:
         """Reachable nodes (leader included) that accept the leader's term."""
@@ -164,3 +183,11 @@ class QuorumCluster(NaiveCluster):
             node.observe_term(leader.current_term)
             accepting.append(node)
         return accepting
+
+
+def next_version(leader: Node) -> Version:
+    """Version for the leader's next write: same term counts up, new term restarts."""
+    last_term, last_sequence = leader.version
+    if last_term == leader.current_term:
+        return (last_term, last_sequence + 1)
+    return (leader.current_term, 1)

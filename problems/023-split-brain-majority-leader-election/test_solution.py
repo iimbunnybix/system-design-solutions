@@ -99,6 +99,26 @@ class FixMajorityOfConfiguredCluster(unittest.TestCase):
         cluster.nodes["b"].current_term = 5
         self.assertFalse(cluster.nodes["b"].handle_vote_request(4, "a"))
 
+    def test_node_that_missed_a_committed_write_cannot_win_election(self):
+        cluster = QuorumCluster(FIVE_NODES)
+        cluster.elect("a")
+        cluster.write("a", "balance", 50)
+        cluster.network.partition(["a", "b", "c"], ["d", "e"])
+        cluster.write("a", "balance", 100)   # acknowledged by a, b, c
+        cluster.network.heal()
+        self.assertFalse(cluster.elect("d"))
+        self.assertTrue(cluster.elect("c"))
+
+    def test_lagging_replicas_catch_up_on_next_write(self):
+        cluster = QuorumCluster(FIVE_NODES)
+        cluster.elect("a")
+        cluster.network.partition(["a", "b", "c"], ["d", "e"])
+        cluster.write("a", "balance", 100)
+        cluster.network.heal()
+        cluster.write("a", "other", 1)
+        balances = {node.data.get("balance") for node in cluster.nodes.values()}
+        self.assertEqual(balances, {100})
+
     def test_isolated_node_cannot_elect_itself(self):
         cluster = QuorumCluster(FIVE_NODES)
         cluster.network.partition(["a"], ["b", "c", "d", "e"])

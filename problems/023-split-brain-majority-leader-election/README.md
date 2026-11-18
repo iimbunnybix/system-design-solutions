@@ -36,6 +36,11 @@ ZooKeeper's Zab and Paxos):
   configured cluster accepts the leader's term. The old leader stranded on
   the 2-node side gets `NotCommitted` instead of silently diverging, and after
   the heal it gets `NotLeader` as soon as it meets a node with a newer term.
+- **Only an up-to-date candidate can win.** Every write stamps the replicas
+  with a version `(term, sequence)`. A node refuses its vote to a candidate
+  whose version is older than its own, so a node that missed an acknowledged
+  write (it was on the minority side) cannot become leader and lose it. Each
+  write copies the leader's full state, so lagging replicas catch up.
 
 ## Trade-offs
 - **Availability is lost on the minority side.** Clients connected to `a`
@@ -49,8 +54,10 @@ ZooKeeper's Zab and Paxos):
   raising its term, and when the network heals it forces a needless
   re-election. Raft's *pre-vote* step and check-quorum avoid this.
 - **Simplified model.** Here a write is applied only once a quorum is known.
-  Real Raft appends entries to a log, commits by index, and also requires a
-  candidate's log to be at least as up to date as the voter's. Use a proven
+  Real Raft appends entries to a log and commits by index; the `(term,
+  sequence)` version here stands in for Raft's "last log term and index"
+  up-to-date check, and copying the whole state on every write only suits
+  small data sets. Use a proven
   implementation (etcd, ZooKeeper, Consul) instead of writing your own.
 - **Alternative:** a single external lock service with fencing tokens
   (problem 004) moves the quorum problem into that service.
