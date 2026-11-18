@@ -74,6 +74,7 @@ Every problem folder has the same structure:
 | 057 | [During a cricket final, live-score updates reached every fan minutes late because one subscriber was on a bad connection](problems/057-slow-subscriber-stalls-fan-out-for-everyone) |
 | 058 | [One customer's corrupt upload took the PDF rendering service down for every customer within seconds](problems/058-poison-tenant-crashes-every-shared-worker) |
 | 059 | [A price cut never appeared on the bestselling product page, while quiet products updated within minutes](problems/059-sliding-cache-ttl-hot-keys-never-refresh) |
+| 060 | [One storage node crashed and 8% of profile reads failed, although every key had two healthy copies](problems/060-retries-pinned-to-same-dead-replica) |
 <!-- INDEX:END -->
 
 ## Run the tests
