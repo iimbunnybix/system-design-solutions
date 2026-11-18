@@ -119,6 +119,18 @@ class FixMajorityOfConfiguredCluster(unittest.TestCase):
         balances = {node.data.get("balance") for node in cluster.nodes.values()}
         self.assertEqual(balances, {100})
 
+    def test_heal_brings_back_a_node_left_out_of_the_partition(self):
+        cluster = QuorumCluster(FIVE_NODES)
+        cluster.network.partition(["a", "b", "c", "d"])
+        cluster.network.heal()
+        self.assertTrue(cluster.network.can_reach("e", "a"))
+
+    def test_node_left_out_of_the_partition_can_still_reach_itself(self):
+        cluster = QuorumCluster(FIVE_NODES)
+        cluster.network.partition(["a", "b", "c", "d"])
+        self.assertTrue(cluster.network.can_reach("e", "e"))
+        self.assertFalse(cluster.network.can_reach("e", "a"))
+
     def test_isolated_node_cannot_elect_itself(self):
         cluster = QuorumCluster(FIVE_NODES)
         cluster.network.partition(["a"], ["b", "c", "d", "e"])

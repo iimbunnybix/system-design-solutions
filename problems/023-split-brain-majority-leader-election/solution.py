@@ -33,16 +33,22 @@ class Network:
     """Which nodes can talk to each other; a partition is a list of groups."""
 
     def __init__(self, node_names: list[str]) -> None:
+        self.all_nodes: set[str] = set(node_names)
         self.groups: list[set[str]] = [set(node_names)]
 
     def partition(self, *groups: list[str]) -> None:
+        """Split the network; any node not listed is isolated on its own."""
         self.groups = [set(group) for group in groups]
+        listed: set[str] = set()
+        for group in self.groups:
+            listed |= group
+        for name in sorted(self.all_nodes - listed):
+            self.groups.append({name})
 
     def heal(self) -> None:
-        everyone: set[str] = set()
-        for group in self.groups:
-            everyone |= group
-        self.groups = [everyone]
+        # Rebuild from the configured membership, not from the current groups,
+        # so a node that was left out of the partition comes back too.
+        self.groups = [set(self.all_nodes)]
 
     def can_reach(self, sender: str, receiver: str) -> bool:
         for group in self.groups:
