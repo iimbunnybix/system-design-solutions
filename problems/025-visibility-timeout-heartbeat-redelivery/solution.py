@@ -71,8 +71,17 @@ class VisibilityQueue:
                 return Delivery(message_id, message.body, message.receipt)
         return None
 
+    @staticmethod
+    def _message_id(receipt: str) -> str:
+        """Recover the message id from ``<message_id>#<receive_count>``.
+
+        Split at the LAST '#': the id may itself contain '#' (``order#981``),
+        but the receive counter never does.
+        """
+        return receipt.rsplit("#", 1)[0]
+
     def _current(self, receipt: str) -> _StoredMessage:
-        message_id = receipt.split("#", 1)[0]
+        message_id = self._message_id(receipt)
         message = self.messages.get(message_id)
         if message is None or message.receipt != receipt:
             raise LeaseLost(receipt)
@@ -84,7 +93,7 @@ class VisibilityQueue:
 
     def delete(self, receipt: str) -> None:
         """Acknowledge the message; fails if the lease was lost."""
-        message_id = receipt.split("#", 1)[0]
+        message_id = self._message_id(receipt)
         self._current(receipt)
         del self.messages[message_id]
 

@@ -45,6 +45,16 @@ class FixHeartbeatExtendsTheLease(unittest.TestCase):
         self.assertEqual(all_completed(workers), ["video-1"])
         self.assertEqual(queue.messages, {})
 
+    def test_message_id_containing_hash_is_completed_once(self):
+        clock = FakeClock()
+        queue = VisibilityQueue(clock)
+        queue.send("order#981", "transcode")
+        worker = Worker("w1", queue, LONG_JOB_S, use_heartbeat=True)
+        run(clock, [worker], 600)
+        self.assertEqual(worker.completed, ["order#981"])
+        self.assertEqual(worker.abandoned, [])
+        self.assertEqual(queue.messages, {})
+
     def test_job_is_only_received_once_while_heartbeating(self):
         clock, queue, workers = setup(use_heartbeat=True)
         run(clock, workers, LONG_JOB_S - 5)
