@@ -77,6 +77,7 @@ Every problem folder has the same structure:
 | 060 | [One storage node crashed and 8% of profile reads failed, although every key had two healthy copies](problems/060-retries-pinned-to-same-dead-replica) |
 | 061 | [Readers in Asia saw answers "replying to a deleted comment" for questions that had just been posted](problems/061-reply-replicated-before-question-shows-orphan-comments) |
 | 062 | [After a 10-second traffic spike, the pricing service timed out every request for another 11 seconds](problems/062-overload-backlog-serves-only-timed-out-requests) |
+| 063 | [The image queue autoscaled from 1 to 10 workers, but the backlog took 9½ minutes to drain and nine workers sat idle](problems/063-high-prefetch-consumer-hoards-queue-others-idle) |
 <!-- INDEX:END -->
 
 ## Run the tests
