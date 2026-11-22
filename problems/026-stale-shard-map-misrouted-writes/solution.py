@@ -74,6 +74,7 @@ class Cluster:
     def split(self, old_shard: str, split_key: str, new_shard: str) -> None:
         """Move keys >= split_key from ``old_shard``'s range to ``new_shard``."""
         old_map = self.current_map
+        self._validate_split(old_shard, split_key, new_shard)
         position = bisect.bisect_right(old_map.range_starts, split_key)
         starts = list(old_map.range_starts)
         names = list(old_map.shards)
@@ -90,6 +91,21 @@ class Cluster:
         for shard in self.shards.values():
             shard.shard_map = new_map
         self.current_map = new_map
+
+
+    def _validate_split(self, old_shard: str, split_key: str, new_shard: str) -> None:
+        """Refuse splits that would move keys off a shard we do not copy from.
+
+        Only ``old_shard``'s data is copied, so the split key must fall inside
+        its range, must not already start a range, and the new shard must be
+        new; otherwise moved keys are orphaned and reads silently return None.
+        """
+        if self.current_map.shard_for(split_key) != old_shard:
+            raise ValueError(f"split key {split_key!r} is not owned by {old_shard}")
+        if split_key in self.current_map.range_starts:
+            raise ValueError(f"split key {split_key!r} already starts a range")
+        if new_shard in self.shards:
+            raise ValueError(f"shard {new_shard} already exists")
 
 
 class Client:

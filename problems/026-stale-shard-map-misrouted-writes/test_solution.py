@@ -81,5 +81,31 @@ class ShardMapLookup(unittest.TestCase):
         self.assertEqual(cluster.shards["s3"].data, {"kate": "v1"})
 
 
+
+class SplitRejectsInvalidRequests(unittest.TestCase):
+    def test_split_key_owned_by_another_shard_is_rejected(self):
+        cluster = cluster_with_users(check_ownership=True)
+        # "t" belongs to s2, so copying from s1 would orphan s2's keys above "t".
+        with self.assertRaises(ValueError):
+            cluster.split("s1", "t", "s3")
+
+    def test_split_key_that_is_already_a_range_start_is_rejected(self):
+        cluster = cluster_with_users(check_ownership=True)
+        with self.assertRaises(ValueError):
+            cluster.split("s2", "m", "s3")
+
+    def test_split_into_an_existing_shard_is_rejected(self):
+        cluster = cluster_with_users(check_ownership=True)
+        with self.assertRaises(ValueError):
+            cluster.split("s1", "f", "s2")
+
+    def test_rejected_split_leaves_the_map_and_data_unchanged(self):
+        cluster = cluster_with_users(check_ownership=True)
+        with self.assertRaises(ValueError):
+            cluster.split("s1", "t", "s3")
+        self.assertEqual(cluster.current_map, initial_map())
+        self.assertEqual(Client(cluster).get("kate"), "v1")
+
+
 if __name__ == "__main__":
     unittest.main()
