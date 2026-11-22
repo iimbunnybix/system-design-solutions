@@ -80,6 +80,7 @@ Every problem folder has the same structure:
 | 063 | [The image queue autoscaled from 1 to 10 workers, but the backlog took 9½ minutes to drain and nine workers sat idle](problems/063-high-prefetch-consumer-hoards-queue-others-idle) |
 | 064 | [The moment reads moved to the new cache cluster, product pages failed and the database read load jumped 21x](problems/064-cold-cache-cluster-cutover-overloads-database) |
 | 065 | [After a dead disk was replaced, 150 user profiles came back old or "not found" although nothing was deleted](problems/065-empty-replacement-replica-counted-in-read-quorum) |
+| 066 | [One multi-page invoice stopped every invoice email for the day while the producer retried it over and over](problems/066-oversized-event-payload-blocks-producer-queue) |
 <!-- INDEX:END -->
 
 ## Run the tests
