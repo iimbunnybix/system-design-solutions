@@ -79,6 +79,7 @@ Every problem folder has the same structure:
 | 062 | [After a 10-second traffic spike, the pricing service timed out every request for another 11 seconds](problems/062-overload-backlog-serves-only-timed-out-requests) |
 | 063 | [The image queue autoscaled from 1 to 10 workers, but the backlog took 9½ minutes to drain and nine workers sat idle](problems/063-high-prefetch-consumer-hoards-queue-others-idle) |
 | 064 | [The moment reads moved to the new cache cluster, product pages failed and the database read load jumped 21x](problems/064-cold-cache-cluster-cutover-overloads-database) |
+| 065 | [After a dead disk was replaced, 150 user profiles came back old or "not found" although nothing was deleted](problems/065-empty-replacement-replica-counted-in-read-quorum) |
 <!-- INDEX:END -->
 
 ## Run the tests
