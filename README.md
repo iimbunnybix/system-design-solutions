@@ -82,6 +82,7 @@ Every problem folder has the same structure:
 | 065 | [After a dead disk was replaced, 150 user profiles came back old or "not found" although nothing was deleted](problems/065-empty-replacement-replica-counted-in-read-quorum) |
 | 066 | [One multi-page invoice stopped every invoice email for the day while the producer retried it over and over](problems/066-oversized-event-payload-blocks-producer-queue) |
 | 067 | [Like counts on popular posts drifted 15% above the real number, and the "fix" made them drop by 60%](problems/067-like-counter-replicas-double-count-on-redelivered-sync) |
+| 068 | [The "s-z" user shard ran out of disk while the other three were half empty](problems/068-alphabet-range-shards-overload-one-shard) |
 <!-- INDEX:END -->
 
 ## Run the tests
