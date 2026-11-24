@@ -84,6 +84,7 @@ Every problem folder has the same structure:
 | 067 | [Like counts on popular posts drifted 15% above the real number, and the "fix" made them drop by 60%](problems/067-like-counter-replicas-double-count-on-redelivered-sync) |
 | 068 | [The "s-z" user shard ran out of disk while the other three were half empty](problems/068-alphabet-range-shards-overload-one-shard) |
 | 069 | [After a consumer restart, 721 orders from the morning were shipped a second time even though the consumer "deduplicated" messages](problems/069-dedup-ttl-shorter-than-replay-double-ships-orders) |
+| 070 | [After moving to multi-worker app servers, logged-in users were bounced to the login page on most clicks](problems/070-process-salted-hash-routes-sessions-to-random-shards) |
 <!-- INDEX:END -->
 
 ## Run the tests
