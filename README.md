@@ -85,6 +85,7 @@ Every problem folder has the same structure:
 | 068 | [The "s-z" user shard ran out of disk while the other three were half empty](problems/068-alphabet-range-shards-overload-one-shard) |
 | 069 | [After a consumer restart, 721 orders from the morning were shipped a second time even though the consumer "deduplicated" messages](problems/069-dedup-ttl-shorter-than-replay-double-ships-orders) |
 | 070 | [After moving to multi-worker app servers, logged-in users were bounced to the login page on most clicks](problems/070-process-salted-hash-routes-sessions-to-random-shards) |
+| 071 | [Growing the metadata cluster from 3 to 5 nodes produced two leaders, and both accepted writes](problems/071-direct-membership-change-elects-two-leaders) |
 <!-- INDEX:END -->
 
 ## Run the tests
