@@ -106,5 +106,23 @@ class FixHotKeyReplication(unittest.TestCase):
             ReplicatingCacheClient([CacheNode()], fake_database, HotKeyDetector())
 
 
+class FixPlacementUsesRealClusterSize(unittest.TestCase):
+    def test_five_node_cluster_serves_every_key_without_error(self):
+        nodes = [CacheNode() for _ in range(COPY_COUNT)]
+        client = ReplicatingCacheClient(nodes, fake_database, HotKeyDetector())
+        for number in range(1_000):
+            self.assertEqual(client.get(f"product:{number}"), f"page for product:{number}")
+
+    def test_added_nodes_receive_reads(self):
+        nodes = [CacheNode() for _ in range(NODE_COUNT + 2)]
+        loads = run_spike(replicating_client(nodes))
+        self.assertTrue(all(load > 0 for load in loads))
+
+    def test_naive_client_also_places_by_real_cluster_size(self):
+        nodes = [CacheNode() for _ in range(3)]
+        client = NaiveCacheClient(nodes, fake_database)
+        self.assertEqual(client.get("product:1"), "page for product:1")
+
+
 if __name__ == "__main__":
     unittest.main()

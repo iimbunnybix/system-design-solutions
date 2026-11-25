@@ -45,10 +45,14 @@ class CacheNode:
         return self.store.get(key)
 
 
-def home_node_index(key: str) -> int:
-    """Stable hash placement: the node that owns ``key``."""
+def home_node_index(key: str, node_count: int = NODE_COUNT) -> int:
+    """Stable hash placement: the node (out of ``node_count``) that owns ``key``.
+
+    WHY a parameter: clients pass len(their node list), so a smaller cluster
+    never indexes past its end and added nodes actually receive keys.
+    """
     digest = hashlib.sha256(key.encode("utf-8")).digest()
-    return int.from_bytes(digest[:8], "big") % NODE_COUNT
+    return int.from_bytes(digest[:8], "big") % node_count
 
 
 # ---------------------------------------------------------------- original
@@ -62,7 +66,7 @@ class NaiveCacheClient:
 
     def get(self, key: str) -> str:
         """Cache-aside read from the key's single home node."""
-        node = self.nodes[home_node_index(key)]
+        node = self.nodes[home_node_index(key, len(self.nodes))]
         value = node.get(key)
         if value is None:
             self.db_reads += 1
@@ -103,13 +107,13 @@ def copy_key(key: str, copy_number: int) -> str:
     return f"{key}#{copy_number}"
 
 
-def copy_node_index(key: str, copy_number: int) -> int:
+def copy_node_index(key: str, copy_number: int, node_count: int = NODE_COUNT) -> int:
     """Place copy i on the i-th node after home.
 
     WHY not hash "key#i": independent hashes often put two copies on the same
     node, which would leave that node hot. Consecutive nodes are always distinct.
     """
-    return (home_node_index(key) + copy_number) % NODE_COUNT
+    return (home_node_index(key, node_count) + copy_number) % node_count
 
 
 class ReplicatingCacheClient:
@@ -125,13 +129,21 @@ class ReplicatingCacheClient:
         self.rng = random.Random(seed)
         self.db_reads = 0
 
+    def home_node(self, key: str) -> CacheNode:
+        """The node holding the key's home copy in this cluster."""
+        return self.nodes[home_node_index(key, len(self.nodes))]
+
+    def copy_node(self, key: str, copy_number: int) -> CacheNode:
+        """The node holding copy ``copy_number`` of the key in this cluster."""
+        return self.nodes[copy_node_index(key, copy_number, len(self.nodes))]
+
     def get(self, key: str) -> str:
         """Read from a random copy if the key is hot, else from its home node."""
         self.detector.record(key)
         copy_number = 0
         if self.detector.is_hot(key):
             copy_number = self.rng.randrange(COPY_COUNT)
-        node = self.nodes[copy_node_index(key, copy_number)]
+        node = self.copy_node(key, copy_number)
         value = node.get(copy_key(key, copy_number))
         if value is None:
             value = self.fill_copy(key, copy_number)
@@ -143,23 +155,23 @@ class ReplicatingCacheClient:
         WHY from home first: five empty replicas would otherwise cost five
         database reads every time a hot key is updated.
         """
-        home = self.nodes[home_node_index(key)]
+        home = self.home_node(key)
         value = home.get(key) if copy_number != 0 else None
         if value is None:
             self.db_reads += 1
             value = self.load_from_db(key)
             home.store[key] = value
-        self.nodes[copy_node_index(key, copy_number)].store[copy_key(key, copy_number)] = value
+        self.copy_node(key, copy_number).store[copy_key(key, copy_number)] = value
         return value
 
     def set(self, key: str, value: str) -> None:
         """Write the home copy and drop all replicas so none can serve old data."""
-        self.nodes[home_node_index(key)].store[key] = value
+        self.home_node(key).store[key] = value
         self.delete_replicas(key)
 
     def invalidate(self, key: str) -> None:
         """Delete every copy of a key."""
-        self.nodes[home_node_index(key)].store.pop(key, None)
+        self.home_node(key).store.pop(key, None)
         self.delete_replicas(key)
 
     def delete_replicas(self, key: str) -> None:
@@ -169,7 +181,7 @@ class ReplicatingCacheClient:
         when it was hot; they would be served again the next time it gets hot.
         """
         for copy_number in range(1, COPY_COUNT):
-            node = self.nodes[copy_node_index(key, copy_number)]
+            node = self.copy_node(key, copy_number)
             node.store.pop(copy_key(key, copy_number), None)
 
 
