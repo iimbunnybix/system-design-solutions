@@ -29,6 +29,25 @@ def make_hot(client: ReplicatingCacheClient, key: str, reads: int = 200) -> None
         client.get(key)
 
 
+class StoreWhereWriterRacesTheFill(dict):
+    """A node's store that runs a concurrent writer just before the first write.
+
+    This reproduces the interleaving from issue #32: a reader has already read
+    the old home copy, then a writer updates the key, then the reader stores
+    the old value in a replica.
+    """
+
+    def __init__(self, race: dict) -> None:
+        super().__init__()
+        self.race = race
+
+    def __setitem__(self, key: str, value: str) -> None:
+        writer = self.race.pop("writer", None)
+        if writer is not None:
+            writer()
+        super().__setitem__(key, value)
+
+
 class ReproduceProblem(unittest.TestCase):
     def test_viral_key_sends_45_percent_of_reads_to_one_node(self):
         loads = run_spike(NaiveCacheClient(new_nodes(), fake_database))
@@ -122,6 +141,22 @@ class FixPlacementUsesRealClusterSize(unittest.TestCase):
         nodes = [CacheNode() for _ in range(3)]
         client = NaiveCacheClient(nodes, fake_database)
         self.assertEqual(client.get("product:1"), "page for product:1")
+
+
+class FixReplicaFillRacingWithSet(unittest.TestCase):
+    def test_write_during_replica_fill_never_leaves_old_value_in_a_copy(self):
+        nodes = new_nodes()
+        client = replicating_client(nodes)
+        make_hot(client, VIRAL_KEY)
+        client.set(VIRAL_KEY, "price 999")       # replicas are empty again
+        race = {"writer": lambda: client.set(VIRAL_KEY, "price 499")}
+        home = home_node_index(VIRAL_KEY)
+        for index, node in enumerate(nodes):
+            if index != home:
+                node.store = StoreWhereWriterRacesTheFill(race)
+        answers = [client.get(VIRAL_KEY) for _ in range(2_000)]
+        self.assertNotIn("writer", race)          # the race really happened
+        self.assertEqual(set(answers[-1_000:]), {"price 499"})
 
 
 if __name__ == "__main__":

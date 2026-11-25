@@ -65,7 +65,12 @@ Same traffic, same seed:
   the last copy, a read can still get the old value from a replica. Here
   that is microseconds in one process; across a network it is a few
   milliseconds, fine for a product page but not for a stock count that must
-  be exact.
+  be exact. A fill that races with a write (it read the old home copy just
+  before the write) re-reads the home copy after storing the replica and
+  deletes the replica if home changed, so the race cannot leave an old copy
+  behind; the cost is one extra home read per fill. Across a real network
+  the same check needs a version number with compare-and-set, or a short
+  TTL on replicas as a backstop.
 - **Memory:** a hot key is stored 5 times. Only hot keys are copied, so this
   is a handful of entries.
 - **Per-client detection:** each app server has its own detector and its own

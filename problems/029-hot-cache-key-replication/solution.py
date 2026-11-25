@@ -9,7 +9,8 @@ Adding nodes did not help: the hot key still lives on one node.
 The fix: count recent requests in a sliding window to detect hot keys, and
 serve a hot key from several copies ("key#1", "key#2", ...) placed on
 different nodes, picking a copy at random per read. A write updates the home
-copy and deletes every other copy, so no copy can serve a stale value.
+copy and deletes every other copy; a replica fill re-checks the home copy
+after writing, so a write racing with the fill cannot leave an old copy.
 """
 from __future__ import annotations
 
@@ -161,7 +162,13 @@ class ReplicatingCacheClient:
             self.db_reads += 1
             value = self.load_from_db(key)
             home.store[key] = value
-        self.copy_node(key, copy_number).store[copy_key(key, copy_number)] = value
+        replica_node = self.copy_node(key, copy_number)
+        replica_node.store[copy_key(key, copy_number)] = value
+        # WHY re-check home: a set() may have run between our home read and the
+        # replica write; its delete_replicas() already ran, so nothing else
+        # would ever remove the old value we just stored (replicas have no TTL).
+        if copy_number != 0 and home.store.get(key) != value:
+            replica_node.store.pop(copy_key(key, copy_number), None)
         return value
 
     def set(self, key: str, value: str) -> None:
