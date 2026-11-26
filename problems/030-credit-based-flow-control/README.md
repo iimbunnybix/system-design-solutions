@@ -46,6 +46,11 @@ send:
 - Events that cannot be sent yet **stay in the durable log**, which is built
   to hold a backlog. As the consumer scores events it frees slots and grants
   new credits, so sending resumes at exactly the consumer's pace.
+- **Sending is not delivery.** The log never deletes an event when it is
+  sent. The consumer acknowledges events (advances `committed_offset`) only
+  after scoring them. If the consumer restarts, `CreditedProducer.reconnect`
+  drops the old credits and resends everything after the last acknowledged
+  offset, so the up to 200 events in a lost buffer are scored by the new pod.
 
 Same traffic (30 s at 2,000/s, then 500/s, 2 minutes simulated):
 
@@ -72,6 +77,10 @@ events are scored, none twice.
 - **Only works if the producer can wait.** Here the backlog sits in a durable
   log. A producer that receives live requests it cannot buffer has to reject
   them (429/503) instead, which is load shedding.
+- **At-least-once:** a consumer that dies after scoring an event but before
+  acknowledging it will see that event again, so scoring must be idempotent
+  per order id. Acknowledging in batches saves round trips but widens the
+  window of events that get rescored.
 - **Alternative:** a bounded queue that blocks or rejects when full gives the
   same memory bound with less protocol. Credits are useful when the producer
   and consumer are separate services and the producer must know how much
