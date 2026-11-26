@@ -88,6 +88,7 @@ Every problem folder has the same structure:
 | 071 | [Growing the metadata cluster from 3 to 5 nodes produced two leaders, and both accepted writes](problems/071-direct-membership-change-elects-two-leaders) |
 | 072 | [After the orders database failed over, 79 orders customers had been told were placed did not exist](problems/072-async-replica-failover-loses-acknowledged-orders) |
 | 073 | [A customer's video sat at "processing 40%" for three days while its worker was deadlocked and still heartbeating](problems/073-heartbeat-thread-keeps-hung-worker-lease-alive) |
+| 074 | [Every customer was charged three times on the first of the month after billing scaled to three replicas](problems/074-every-replica-runs-the-monthly-billing-job) |
 <!-- INDEX:END -->
 
 ## Run the tests
