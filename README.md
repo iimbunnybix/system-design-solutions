@@ -90,6 +90,7 @@ Every problem folder has the same structure:
 | 073 | [A customer's video sat at "processing 40%" for three days while its worker was deadlocked and still heartbeating](problems/073-heartbeat-thread-keeps-hung-worker-lease-alive) |
 | 074 | [Every customer was charged three times on the first of the month after billing scaled to three replicas](problems/074-every-replica-runs-the-monthly-billing-job) |
 | 075 | [Readers saw a new comment, refreshed and it was gone, refreshed again and it was back](problems/075-replica-hopping-reads-make-comments-vanish-and-reappear) |
+| 076 | [One storage node died and some keys were gone for good, although every key was "stored three times"](problems/076-adjacent-vnodes-put-all-replicas-on-one-machine) |
 <!-- INDEX:END -->
 
 ## Run the tests
