@@ -89,6 +89,7 @@ Every problem folder has the same structure:
 | 072 | [After the orders database failed over, 79 orders customers had been told were placed did not exist](problems/072-async-replica-failover-loses-acknowledged-orders) |
 | 073 | [A customer's video sat at "processing 40%" for three days while its worker was deadlocked and still heartbeating](problems/073-heartbeat-thread-keeps-hung-worker-lease-alive) |
 | 074 | [Every customer was charged three times on the first of the month after billing scaled to three replicas](problems/074-every-replica-runs-the-monthly-billing-job) |
+| 075 | [Readers saw a new comment, refreshed and it was gone, refreshed again and it was back](problems/075-replica-hopping-reads-make-comments-vanish-and-reappear) |
 <!-- INDEX:END -->
 
 ## Run the tests
