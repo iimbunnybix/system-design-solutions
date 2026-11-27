@@ -116,15 +116,19 @@ def offset_page_correct(shards: list[Shard], page_number: int, limit: int = PAGE
 
 def cursor_page(shards: list[Shard], cursor: SortKey | None,
                 limit: int = PAGE_SIZE) -> tuple[list[Listing], SortKey | None]:
-    """Keyset paging: LIMIT rows after the cursor from each shard, then merge.
+    """Keyset paging: LIMIT+1 rows after the cursor from each shard, then merge.
 
     Each shard's next ``limit`` rows after the cursor include every row it can
-    contribute to the next global page. Returns the page and the cursor for
-    the following page (None when the feed is exhausted).
+    contribute to the next global page. One extra row tells us whether a
+    further page exists, so the cursor is None exactly when the feed is
+    exhausted, even when the total is a multiple of the page size.
     """
-    per_shard = [shard.query_after(cursor, limit) for shard in shards]
-    page = merge_newest(per_shard, limit)
-    if len(page) < limit:
+    fetch_size = limit + 1
+    per_shard = [shard.query_after(cursor, fetch_size) for shard in shards]
+    merged = merge_newest(per_shard, fetch_size)
+    page = merged[:limit]
+    # Only the extra (limit+1)th row proves there is something after this page.
+    if len(merged) <= limit:
         return page, None
     return page, page[-1].sort_key()
 

@@ -46,10 +46,13 @@ Two correct ways to page a scatter-gather query (`solution.py`):
    and why it caps `from + size` at 10,000 by default.
 2. **Cursor (keyset) paging with a k-way merge** (`cursor_page`). The cursor
    is the sort key `(created_at, id)` of the last listing shown. Each shard
-   returns its next 20 rows after the cursor (an index seek, not an offset),
+   returns its next 21 rows after the cursor (an index seek, not an offset),
    and the API merges the 8 sorted lists with `heapq.merge` and keeps 20.
    A shard can contribute at most 20 rows to the next page, so 20 per shard
-   is always enough. Each page costs at most 8 x 20 = 160 rows, however deep.
+   is always enough; the 21st row only tells us whether another page exists,
+   so the last page (page 90 of exactly 1,800 listings) returns no cursor and
+   clients never fetch an empty page. Each page costs at most 8 x 21 = 168
+   rows, however deep.
 
 The sort key includes the listing id, so listings with the same timestamp on
 different shards are neither skipped nor shown twice (tested).
@@ -60,13 +63,13 @@ Browsing the whole feed (90 pages):
 |---|---|---|---|
 | Original (each shard's page N) | 13 | 245 | 15,917 |
 | Offset with full prefix | 90 | 1,800, in order | 152,717 |
-| Cursor + k-way merge | 90 | 1,800, in order | 13,797 |
+| Cursor + k-way merge | 90 | 1,800, in order | 14,454 |
 
 ## Trade-offs
 - **No "jump to page 37"** with cursors; the UI becomes "next / previous" or
   infinite scroll. If page numbers are required, keep offset paging with the
   full prefix and cap the depth.
-- **Over-fetching:** each cursor page reads up to 8 x 20 rows to show 20.
+- **Over-fetching:** each cursor page reads up to 8 x 21 rows to show 20.
   With many shards, ask each shard for fewer rows and fetch more from a shard
   only when the merge runs out of its rows, at the cost of extra round trips.
 - **Cursor stability:** new listings added above the cursor do not shift

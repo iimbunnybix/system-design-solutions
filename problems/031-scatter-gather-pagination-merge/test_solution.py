@@ -65,22 +65,39 @@ class FixGlobalPagination(unittest.TestCase):
         tenth = total_rows_read(self.shards) - before
         self.assertEqual((first, tenth), (160, 1_600))
 
-    def test_cursor_page_cost_never_exceeds_shards_times_page_size(self):
+    def test_last_full_page_returns_no_cursor(self):
+        cursor = None
+        calls = 0
+        while True:
+            page, cursor = cursor_page(self.shards, cursor)
+            calls += 1
+            if cursor is None:
+                break
+        self.assertEqual((calls, len(page)), (LISTING_COUNT // PAGE_SIZE, PAGE_SIZE))
+
+    def test_exact_multiple_of_page_size_needs_no_extra_request(self):
+        shards = shards_with([[(1, 10), (2, 20)], [(3, 30), (4, 40)]])
+        first_page, cursor = cursor_page(shards, None, limit=2)
+        second_page, cursor = cursor_page(shards, cursor, limit=2)
+        self.assertEqual(len(first_page) + len(second_page), 4)
+        self.assertIsNone(cursor)
+
+    def test_cursor_page_cost_never_exceeds_shards_times_page_size_plus_one(self):
         cursor = None
         while True:
             before = total_rows_read(self.shards)
             _, cursor = cursor_page(self.shards, cursor)
-            self.assertLessEqual(total_rows_read(self.shards) - before, SHARD_COUNT * PAGE_SIZE)
+            self.assertLessEqual(total_rows_read(self.shards) - before, SHARD_COUNT * (PAGE_SIZE + 1))
             if cursor is None:
                 break
 
-    def test_browsing_the_whole_feed_reads_11x_fewer_rows_with_cursors(self):
+    def test_browsing_the_whole_feed_reads_10x_fewer_rows_with_cursors(self):
         browse_cursor_feed(self.shards)
         cursor_rows = total_rows_read(self.shards)
         offset_shards = build_marketplace()
         for page_number in range(90):
             offset_page_correct(offset_shards, page_number)
-        self.assertEqual(cursor_rows, 13_797)
+        self.assertEqual(cursor_rows, 14_454)
         self.assertEqual(total_rows_read(offset_shards), 152_717)
 
     def test_equal_timestamps_on_different_shards_are_not_skipped_or_repeated(self):
