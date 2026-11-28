@@ -92,6 +92,7 @@ Every problem folder has the same structure:
 | 075 | [Readers saw a new comment, refreshed and it was gone, refreshed again and it was back](problems/075-replica-hopping-reads-make-comments-vanish-and-reappear) |
 | 076 | [One storage node died and some keys were gone for good, although every key was "stored three times"](problems/076-adjacent-vnodes-put-all-replicas-on-one-machine) |
 | 077 | [After going active-active across two regions, about half of all new orders disappeared from one region or the other](problems/077-active-active-auto-increment-ids-collide-orders-dropped) |
+| 078 | [Password-reset emails sent at night arrived the next morning, and some never arrived at all](problems/078-size-only-batching-strands-messages-at-low-traffic) |
 <!-- INDEX:END -->
 
 ## Run the tests
